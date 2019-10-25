@@ -6,7 +6,7 @@ Colocar tópicos para META 1
 
 - Tópico 1
   	- Planear e definir as estruturas de dados responsáveis por gerir as definições de funcionamento no gestor e no cliente.
-    - Definir os vários header files com constantes simbólicas que registem os valores por omissão comuns e especificos do cliente e        servidor bem como as estruturas de dados relevantes.
+    - Definir os vários header files com constantes simbólicas que registem os valores por omissão comuns e especificos do cliente e servidor bem como as estruturas de dados relevantes.
     
 - Tópico 2
     - Desenvolver a lógica de leitura das variáveis de ambiente do gestor e do cliente, refletindo-se nas estruturas de dados             mencionadas no ponto anterior. Sugestão: usar as funções getopt(), getsubopt() e getenv().
