@@ -20,4 +20,4 @@ Colocar tópicos para META 1
 - Tópico 5
     - Desenvolver e entregar um makefile que possua os targets de compilação "all" (compilação de todos os programas), "cliente"        (compilação do programa cliente), "gestor" (compilação do programa servidor), "verificador" (compilação do programa verificador) e    "clean" (eliminação de todos os ficheiros temporários de apoio à compilação e dos executáveis).
     
-#Data de entrega - 17 de Novembro (Domingo)
+# Data de entrega - 17 de Novembro (Domingo)
