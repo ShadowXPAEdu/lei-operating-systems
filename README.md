@@ -1,2 +1,9 @@
 # SOTrabalhoPratico1
-Trabalho podre de SO
+
+Colocar tópicos para META 1
+
+# vvvvv
+
+- Tópico 1
+- Tópico 2
+- etc.
