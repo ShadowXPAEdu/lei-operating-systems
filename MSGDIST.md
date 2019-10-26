@@ -26,12 +26,12 @@
 # Cliente
 
   O cliente poderá:
-    - Escrever uma nova mensagem, especificando todos os campos, e enviá-la ao gestor.
-      - Se o cliente estiver subscrito ao tópico de mensagem enviada, deve ser imediatamente alertado.
-    - Consultar a lista de tópicos atualmente existentes (tenham ou não mensagens).
-    - Consultar a lista de títulos de mensagens de um determinado tópico.
-    - Consultar uma mensagem de um tópico.
-    - Subscrever/cancelar subscrição de um tópico.
+  - Escrever uma nova mensagem, especificando todos os campos, e enviá-la ao gestor.
+    - Se o cliente estiver subscrito ao tópico de mensagem enviada, deve ser imediatamente alertado.
+  - Consultar a lista de tópicos atualmente existentes (tenham ou não mensagens).
+  - Consultar a lista de títulos de mensagens de um determinado tópico.
+  - Consultar uma mensagem de um tópico.
+  - Subscrever/cancelar subscrição de um tópico.
 
 ---
 
@@ -53,21 +53,21 @@
 # Servidor
 
   O gestor deverá concretizar as funcionalidades:
-    - Receber mensagens enviadas pelos clientes, armazena-as durante o tempo indicado no campo duração da mensagem e elimina-as automáticamente quando a duração se esgotar. O número máximo de mensagens a armazenar é fixo durante a execução do gestor e é fornecido pelo valor da variável de ambiente MAXMSG.
-    - Avisa os clientes acerca da existência de novas mensagens recebidas nos tópicos por eles subscritos.
-    - Mantém informação acerca de que clientes e utilizadores se encontram a interagir com ele.
-    - Mantém a informação acerca de que tópicos estão subscritos por que clientes/utilizadores.
-    - É lancado pelo administrador e aceita, por parte deste, comandos escritos.
-    - Deteta que clientes terminaram a sua execução.
-    - Avisa que clientes conhecidos que vai terminar, e permite que o cliente saiba que ainda está em execução.
-    - Reporta de imediato no `stderr` todas as ações feitas que alteram a lista de mensagens ou tópicos, e as ações que alteram o conjunto de clientes/utilizadores. (Logs do que está a acontecer mandados para o `stderr`)
-    Exemplos:
-      - Mensagem recebida.
-      - Eliminação das mensagens publicadas quando as mesmas expiraram.
-      - Criação de novos tópicos e a eliminação de tópicos.
-      - Utilizador entrou.
-      - Cliente deixou de existir.
-      - Etc.
+  - Receber mensagens enviadas pelos clientes, armazena-as durante o tempo indicado no campo duração da mensagem e elimina-as automáticamente quando a duração se esgotar. O número máximo de mensagens a armazenar é fixo durante a execução do gestor e é fornecido pelo valor da variável de ambiente MAXMSG.
+  - Avisa os clientes acerca da existência de novas mensagens recebidas nos tópicos por eles subscritos.
+  - Mantém informação acerca de que clientes e utilizadores se encontram a interagir com ele.
+  - Mantém a informação acerca de que tópicos estão subscritos por que clientes/utilizadores.
+  - É lancado pelo administrador e aceita, por parte deste, comandos escritos.
+  - Deteta que clientes terminaram a sua execução.
+  - Avisa que clientes conhecidos que vai terminar, e permite que o cliente saiba que ainda está em execução.
+  - Reporta de imediato no `stderr` todas as ações feitas que alteram a lista de mensagens ou tópicos, e as ações que alteram o conjunto de clientes/utilizadores. (Logs do que está a acontecer mandados para o `stderr`)
+  Exemplos:
+    - Mensagem recebida.
+    - Eliminação das mensagens publicadas quando as mesmas expiraram.
+    - Criação de novos tópicos e a eliminação de tópicos.
+    - Utilizador entrou.
+    - Cliente deixou de existir.
+    - Etc.
 
   Cada mensagem recebida pelo gestor é analizada com o auxílio do programa independente `verificador`, que recebe o corpo da mensagem e identifica o número de palavras proibidas nele existente. Se o número de palavras proibidas exceder o valor indicado na variável de ambiente `MAXNOT`, então a mensagem é rejeitada e o cliente é avisado. As palavras proibidas estão no ficheiro de texto cujo nome está na variável de ambiente `WORDSNOT`.
 
@@ -80,22 +80,22 @@
 # Administração do gestor
 
   As ações que o administrador pode desencadear são:
-    - Ligar/desligar a filtragem de palavras proibidas: `filter [on/off]`
-    - Listar utilizadores: `users`
-    - Listar tópicos: `topics`
-    - Listar mensagens: `msg`
-    - Listar mensagens de um tópico: `topic [tópico]`
-    - Apagar mensagens: `del [id_mensagem]`
-    - Excluir um utilizador: `kick [user]`
-    - Desligar o gestor: `shutdown`
-    - Eliminar tópicos que não tenham nenhuma mensagem de momento (subscrições são canceladas): `prune`
+  - Ligar/desligar a filtragem de palavras proibidas: `filter [on/off]`
+  - Listar utilizadores: `users`
+  - Listar tópicos: `topics`
+  - Listar mensagens: `msg`
+  - Listar mensagens de um tópico: `topic [tópico]`
+  - Apagar mensagens: `del [id_mensagem]`
+  - Excluir um utilizador: `kick [user]`
+  - Desligar o gestor: `shutdown`
+  - Eliminar tópicos que não tenham nenhuma mensagem de momento (subscrições são canceladas): `prune`
 
   Os seguintes mecanismos devem poder funcionar de forma independente/paralela uns dos outros de forma a que o atraso num deles não ponha diretamente em causa a execução dos restantes.
-    - Verificação de palavras através do verificador.
-    - Processamente de mensagens enviadas pelos clientes.
-    - Atendimento dos comandos do administrador.
-    - Deteção de clientes em encerramento ou incontactáveis.
-    - Verificação das idades das mensagens e eliminação das que expiram.
+  - Verificação de palavras através do verificador.
+  - Processamente de mensagens enviadas pelos clientes.
+  - Atendimento dos comandos do administrador.
+  - Deteção de clientes em encerramento ou incontactáveis.
+  - Verificação das idades das mensagens e eliminação das que expiram.
 
 ---
 
