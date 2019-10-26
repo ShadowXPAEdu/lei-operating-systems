@@ -53,7 +53,7 @@
 # Servidor
 
   O gestor deverá concretizar as funcionalidades:
-  - Receber mensagens enviadas pelos clientes, armazena-as durante o tempo indicado no campo duração da mensagem e elimina-as automáticamente quando a duração se esgotar. O número máximo de mensagens a armazenar é fixo durante a execução do gestor e é fornecido pelo valor da variável de ambiente MAXMSG.
+  - Receber mensagens enviadas pelos clientes, armazena-as durante o tempo indicado no campo duração da mensagem e elimina-as automáticamente quando a duração se esgotar. O número máximo de mensagens a armazenar é fixo durante a execução do gestor e é fornecido pelo valor da variável de ambiente `MAXMSG`.
   - Avisa os clientes acerca da existência de novas mensagens recebidas nos tópicos por eles subscritos.
   - Mantém informação acerca de que clientes e utilizadores se encontram a interagir com ele.
   - Mantém a informação acerca de que tópicos estão subscritos por que clientes/utilizadores.
