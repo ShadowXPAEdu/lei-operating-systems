@@ -145,13 +145,3 @@ void printerr(const char *str, int val) {
     fprintf(stderr, str);
     fprintf(stderr, "\n");
 }
-
-int IsServerRunning(const char *path) {
-    FILE *fptr = fopen(path, "r");
-
-    if (fptr == NULL)
-        return 0;
-
-    fclose(fptr);
-    return -1;
-}
