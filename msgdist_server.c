@@ -10,17 +10,16 @@
 #include "msgdist_s.h"
 
 int main(int argc, char* argv[], char** envp) {
-    char *sv_fifo = "/tmp/msgsv";
     pthread_t td_cmd;
 
-    if (ProgramIsAlreadyRunning(sv_fifo) != 0) {
+    if (IsServerRunning(sv_fifo) != 0) {
         printf("Looks like the server is already running...\nClosing instance...\n");
         sv_exit(-1);
     } else {
 
         // Read cmd from named pipe
 
-        pthread_create(&td_cmd, NULL, cmd_reader, (void*)(sv_fifo));
+        pthread_create(&td_cmd, NULL, cmd_reader, NULL);
 
         //
 
@@ -94,8 +93,7 @@ int main(int argc, char* argv[], char** envp) {
     }
 }
 
-void *cmd_reader(void *info) {
-    char *sv_fifo = (char*)info;
+void *cmd_reader() {
     if (mkfifo(sv_fifo, 0666) == 0) {
         fprintf(stderr, "FIFO Created\n");
         int fd = open(sv_fifo, O_RDWR);
@@ -125,7 +123,7 @@ void sv_exit(int return_val) {
     exit(return_val);
 }
 
-int ProgramIsAlreadyRunning(const char *path) {
+int IsServerRunning(const char *path) {
     FILE *fptr = fopen(path, "r");
 
     if (fptr == NULL)

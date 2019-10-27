@@ -49,3 +49,6 @@ typedef struct {
     char Username[20];
     char NamedFIFO[10];
 } USER;
+
+char *sv_fifo = "/tmp/msgsv";
+int IsServerRunning(const char *path);
