@@ -32,13 +32,13 @@
 #define CMD_ALIVE 223
 
 typedef struct {
-    int CMD;
+    int cmd;
     char From[10];
     void* Body;
 } COMMAND;
 
 typedef struct {
-    int ID;
+    int id;
     char Topic[50];
     char Title[50];
     char Body[1000];
