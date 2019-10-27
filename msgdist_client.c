@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "msgdist.h"
+#include "msgdist_c.h"
 
 int main(int argc, char* argv[], char** envp) {
     if (argc != 2) {
@@ -21,4 +22,14 @@ void cl_exit(int return_val) {
 
 
     exit(return_val);
+}
+
+int IsServerRunning(const char *path) {
+    FILE *fptr = fopen(path, "r");
+
+    if (fptr == NULL)
+        return 0;
+
+    fclose(fptr);
+    return -1;
 }

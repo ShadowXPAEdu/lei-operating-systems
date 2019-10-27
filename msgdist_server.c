@@ -16,6 +16,7 @@ int main(int argc, char* argv[], char** envp) {
         printf("Looks like the server is already running...\nClosing instance...\n");
         sv_exit(-1);
     } else {
+        printerr("Opening server.", PERR_NORM);
 
         // Read cmd from named pipe
 
@@ -24,6 +25,7 @@ int main(int argc, char* argv[], char** envp) {
         //
 
         // Read admin cmds
+        printerr("Accepting admin commands.", PERR_NORM);
         int i = 0;
         while (i == 0) {
             char adm_cmd[32];
@@ -95,23 +97,23 @@ int main(int argc, char* argv[], char** envp) {
 
 void *cmd_reader() {
     if (mkfifo(sv_fifo, 0666) == 0) {
-        fprintf(stderr, "FIFO Created\n");
+        printerr("Named pipe created.", PERR_INFO);
         int fd = open(sv_fifo, O_RDWR);
         if (fd == -1) {
-            printf("Error opening FIFO!\n");
+            printerr("Error opening named pipe.", PERR_ERROR);
             sv_exit(-1);
         } else {
-            printf("FIFO Opened\n");
+            printerr("Named pipe opened.", PERR_INFO);
 
             // do stuff
 
             close(fd);
-            printf("FIFO Closed\n");
+            printerr("Named pipe closed.", PERR_INFO);
             unlink(sv_fifo);
-            printf("FIFO Deleted\n");
+            printerr("Named pipe deleted.", PERR_INFO);
         }
     } else {
-        printf("An error occurred trying to open named pipe!\nClosing...\n");
+        printerr("An error occurred trying to open named pipe!\nClosing...", PERR_ERROR);
         sv_exit(-1);
     }
     return NULL;
@@ -121,6 +123,27 @@ void sv_exit(int return_val) {
 
 
     exit(return_val);
+}
+
+void printerr(const char *str, int val) {
+    switch (val) {
+        case PERR_NORM:
+            fprintf(stderr, "[Server] > ");
+            break;
+        case PERR_ERROR:
+            fprintf(stderr, "[ERROR] > ");
+            break;
+        case PERR_WARNING:
+            fprintf(stderr, "[WARNING] > ");
+            break;
+        case PERR_INFO:
+            fprintf(stderr, "[INFO] > ");
+            break;
+        default:
+            break;
+    }
+    fprintf(stderr, str);
+    fprintf(stderr, "\n");
 }
 
 int IsServerRunning(const char *path) {
