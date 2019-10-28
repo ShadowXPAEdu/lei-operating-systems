@@ -107,13 +107,51 @@ void *cmd_reader() {
         } else {
             printerr("Named pipe opened.", PERR_INFO);
 
+            CMD_UN un;
             // do stuff
-            read(fd, &cmd, sizeof(COMMAND));
-            USER *us;
-
-            us = &(cmd.Body);
-
-            printf("CMD: %d\nFROM: %s\nUSER: %s\nFIFO: %s\n", cmd.cmd, cmd.From, us->Username, us->NamedFIFO);
+            while (cmd_reader_bool == 0) {
+                read(fd, &cmd, sizeof(COMMAND));
+                switch (cmd.cmd) {
+                case CMD_CON:
+                    // User connecting
+                    un = (cmd.Body);
+                    USER us;
+                    us = un.us;
+                    printf("CMD: %d\nFROM: %s\nUSER: %s\nFIFO: %s\n", cmd.cmd, cmd.From, us.Username, us.NamedFIFO);
+                    break;
+                case CMD_DC:
+                    // User disconnecting
+                    break;
+                case CMD_NEWMSG:
+                    // User sent new msg
+                    un = (cmd.Body);
+                    MESSAGE m;
+                    m = un.msg;
+                    printf("CMD: %d\nFROM: %s\nTopic: %s\nTitle: %s\nBody: '%s'\nID: %d\nDuration: %d\n", cmd.cmd, cmd.From, m.Topic, m.Title, m.Body, m.id, m.Duration);
+                    break;
+                case CMD_GETTOPICS:
+                    // User asked for topics
+                    break;
+                case CMD_GETTITLES:
+                    // User asked for messages
+                    break;
+                case CMD_GETMSG:
+                    // User asked for specific message
+                    break;
+                case CMD_SUB:
+                    // User subscribed to a topic
+                    break;
+                case CMD_UNSUB:
+                    // User unsubscribed to a topic
+                    break;
+                case CMD_ALIVE:
+                    // User is ALIVE
+                    break;
+                default:
+                    // Send Err cmd
+                    break;
+                }
+            }
 
             close(fd);
             printerr("Named pipe closed.", PERR_INFO);
@@ -134,20 +172,20 @@ void sv_exit(int return_val) {
 
 void printerr(const char *str, int val) {
     switch (val) {
-        case PERR_NORM:
-            fprintf(stderr, "[Server] > ");
-            break;
-        case PERR_ERROR:
-            fprintf(stderr, "[ERROR] > ");
-            break;
-        case PERR_WARNING:
-            fprintf(stderr, "[WARNING] > ");
-            break;
-        case PERR_INFO:
-            fprintf(stderr, "[INFO] > ");
-            break;
-        default:
-            break;
+    case PERR_NORM:
+        fprintf(stderr, "[Server] > ");
+        break;
+    case PERR_ERROR:
+        fprintf(stderr, "[ERROR] > ");
+        break;
+    case PERR_WARNING:
+        fprintf(stderr, "[WARNING] > ");
+        break;
+    case PERR_INFO:
+        fprintf(stderr, "[INFO] > ");
+        break;
+    default:
+        break;
     }
     fprintf(stderr, str);
     fprintf(stderr, "\n");

@@ -24,9 +24,11 @@ int main(int argc, char* argv[], char** envp) {
             sprintf(snp, "%d", getpid());
 
             COMMAND cl_cmd;
-            cl_cmd.cmd = CMD_OK;
+            cl_cmd.cmd = CMD_CON;
             strcpy(cl_cmd.From, "/tmp/");
             strcat(cl_cmd.From, snp);
+
+            CMD_UN un;
 
             USER cl;
             strcpy(cl.Username, argv[1]);
@@ -34,11 +36,27 @@ int main(int argc, char* argv[], char** envp) {
 
             printf("User: %s\nFifo: %s\n", cl.Username, cl.NamedFIFO);
 
-            cl_cmd.Body = (void*)&cl;
+            un.us = cl;
+            cl_cmd.Body = un;
 
             write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
             char* lala;
             scanf("%s", lala);
+
+            cl_cmd.cmd = CMD_NEWMSG;
+
+            MESSAGE m;
+
+            m.id = 0;
+            strcpy(m.Topic, "Games");
+            strcpy(m.Title, "Did you know?");
+            strcpy(m.Body, "Odiwanoidwa diawoinwa oidwa\niadwodiaw idan\ndwadawdwadawawd!");
+            m.Duration = 10;
+
+            un.msg = m;
+            cl_cmd.Body = un;
+
+            write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
 
             close(sv_fd);
         }

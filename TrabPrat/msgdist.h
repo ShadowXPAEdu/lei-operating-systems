@@ -32,10 +32,9 @@
 #define CMD_ALIVE 223
 
 typedef struct {
-    int cmd;
-    char From[10];
-    void* Body;
-} COMMAND;
+    char Username[20];
+    char NamedFIFO[10];
+} USER;
 
 typedef struct {
     int id;
@@ -45,10 +44,16 @@ typedef struct {
     int Duration;
 } MESSAGE;
 
+typedef union {
+    USER us;
+    MESSAGE msg;
+} CMD_UN;
+
 typedef struct {
-    char Username[20];
-    char NamedFIFO[10];
-} USER;
+    int cmd;
+    char From[10];
+    CMD_UN Body;
+} COMMAND;
 
 char *sv_fifo = "/tmp/msgsv";
 int IsServerRunning(const char *path);
