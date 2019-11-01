@@ -11,20 +11,29 @@
 
 // Initial malloc size
 #define INIT_MALLOC_SIZE 10
+#define THREADS 3                   // 0 = cmd_reader / 1 = msg_duration / 2 = heartbeat
 
-// CMD_READER Thread controller
+// Thread bool controller
 int cmd_reader_bool = 0;
+int msg_duration_bool = 0;
+int heartbeat_bool = 0;
+int shutdown_init = 0;
 
 // Functions
 void sv_exit(int return_val);
 int adm_cmd_reader();
-void *cmd_reader();
 void set_signal();
 void received_signal(int i);
+void test_signal(int i);
 void shutdown();
 void init_config();
 void init_verificador();
-void printerr(const char *str, int val);
+void printerr(const char* str, int val);
+
+// Thread functions
+void *cmd_reader();
+void *msg_duration();
+void *heartbeat();
 
 // Admin command functions
 void adm_cmd_help();
@@ -48,6 +57,7 @@ typedef struct {
     int id;                         // User id
     int user_fd;                    // User file descriptor
     USER user;                      // User
+    int alive;                      // User alive = 1/dead = 0
     int sub_size;                   // Malloc size for topics
     SV_TOPIC *topics;               // Subscribed topics
 } SV_USER;
@@ -78,4 +88,10 @@ typedef struct {
     char *wordsnot;                 // File name/path of the file of banned words
 } SV_CFG;
 
+// Variables
 SV_CFG sv_cfg;
+pthread_mutex_t mtx_user = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mtx_msg = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mtx_topic = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mtx_wait_for_init_td = PTHREAD_MUTEX_INITIALIZER;
+

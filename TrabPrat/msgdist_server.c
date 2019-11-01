@@ -1,12 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <pthread.h>
-#include <signal.h>
 #include "msgdist.h"
 #include "msgdist_s.h"
 
@@ -18,26 +9,44 @@ int main(int argc, char* argv[], char** envp) {
         printerr("Looks like the server is already running...\nClosing instance...\n", PERR_ERROR);
         sv_exit(-3);
     } else {
-        pthread_t td_cmd;
+        pthread_t tds[THREADS];
         // Initiate configuration
         init_config();
         // Sets default action when signal is received
         set_signal();
 
-        // Open verificador
+        // Open 'verificador'
         init_verificador();
 
         printerr("Opening server.", PERR_NORM);
 
+        // Create threads
         // Read cmd from named pipe
-
-        pthread_create(&td_cmd, NULL, cmd_reader, NULL);
+        if (pthread_create(&tds[0], NULL, cmd_reader, NULL) != 0) {
+            printerr("Could not create thread to read commands from users.", PERR_ERROR);
+            sv_exit(-3);
+        }
+        // Checks message durations
+        if (pthread_create(&tds[1], NULL, msg_duration, NULL) != 0) {
+            printerr("Could not create thread to check message durations.", PERR_ERROR);
+            sv_exit(1);
+        }
+        // Sends heartbeat to users
+        if (pthread_create(&tds[2], NULL, heartbeat, NULL) != 0) {
+            printerr("Could not create thread to send heartbeat messages to users.", PERR_ERROR);
+            sv_exit(1);
+        }
 
         // Read admin cmds
+        pthread_mutex_lock(&mtx_wait_for_init_td);
         printerr("Accepting admin commands.", PERR_NORM);
+        printf("Type 'help' for a list of commands.\n");
+        pthread_mutex_unlock(&mtx_wait_for_init_td);
         while (adm_cmd_reader() == 0);
 
-        pthread_join(td_cmd, NULL);
+        for (int i = 0; i < THREADS; i++) {
+            pthread_join(tds[i], NULL);
+        }
         //pthread_cancel(td_cmd);
         sv_exit(0);
     }
@@ -219,6 +228,8 @@ int adm_cmd_reader() {
 }
 
 void *cmd_reader() {
+    pthread_mutex_lock(&mtx_wait_for_init_td);
+    set_signal();
     if (mkfifo(sv_fifo, 0666) == 0) {
         printerr("Named pipe created.", PERR_INFO);
         sv_cfg.sv_fifo_fd = open(sv_fifo, O_RDWR);
@@ -227,6 +238,8 @@ void *cmd_reader() {
             sv_exit(-1);
         } else {
             printerr("Named pipe opened.", PERR_INFO);
+            printerr("Ready to receive commands from users.", PERR_INFO);
+            pthread_mutex_unlock(&mtx_wait_for_init_td);
 
             while (cmd_reader_bool == 0) {
                 COMMAND cmd;
@@ -237,62 +250,64 @@ void *cmd_reader() {
                 read(sv_cfg.sv_fifo_fd, &cmd, sizeof(COMMAND));
                 un = (cmd.Body);
 
-                // Take care of cmd
-                switch (cmd.cmd) {
-                case CMD_CON:
-                    // User connecting
-                    us = un.us;
-                    printf("CMD: %d\nFROM: %s\nUSER: %s\nFIFO: %s\n", cmd.cmd, cmd.From, us.Username, us.FIFO);
+                // If cmd_reader_bool is still 0
+                if (cmd_reader_bool == 0) {
+                    // Take care of cmd
+                    switch (cmd.cmd) {
+                    case CMD_CON:
+                        // User connecting
+                        us = un.un_user;
+                        printf("CMD: %d\nFROM: %s\nUSER: %s\nFIFO: %s\n", cmd.cmd, cmd.From, us.Username, us.FIFO);
 
-                    sv_cfg.users[sv_cfg.next_uid].id = sv_cfg.next_uid;
-                    strcpy(sv_cfg.users[sv_cfg.next_uid].user.Username, us.Username);
-                    strcpy(sv_cfg.users[sv_cfg.next_uid].user.FIFO, us.FIFO);
-                    sv_cfg.next_uid++;
-                    sv_cfg.n_users++;
-                    break;
-                case CMD_DC:
-                    // User disconnecting
+                        sv_cfg.users[sv_cfg.next_uid].id = sv_cfg.next_uid;
+                        strcpy(sv_cfg.users[sv_cfg.next_uid].user.Username, us.Username);
+                        strcpy(sv_cfg.users[sv_cfg.next_uid].user.FIFO, us.FIFO);
+                        sv_cfg.next_uid++;
+                        sv_cfg.n_users++;
+                        break;
+                    case CMD_DC:
+                        // User disconnecting
 
-                    sv_cfg.n_users--;
-                    break;
-                case CMD_NEWMSG:
-                    // User sent new msg
-                    m = un.msg;
-                    printf("CMD: %d\nFROM: %s\nTopic: %s\nTitle: %s\nBody: '%s'\nDuration: %d\n", cmd.cmd, cmd.From, m.Topic, m.Title, m.Body, m.Duration);
-                    // Verify bad words
-                    int i = adm_cmd_verify(m.Body, 0);
-                    if (i > sv_cfg.maxnot) {
-                        // Delete message and warn user
-                    } else {
-                        // Save message
+                        sv_cfg.n_users--;
+                        break;
+                    case CMD_NEWMSG:
+                        // User sent new msg
+                        m = un.un_msg;
+                        printf("CMD: %d\nFROM: %s\nTopic: %s\nTitle: %s\nBody: '%s'\nDuration: %d\n", cmd.cmd, cmd.From, m.Topic, m.Title, m.Body, m.Duration);
+                        // Verify bad words
+                        int i = adm_cmd_verify(m.Body, 0);
+                        if (i > sv_cfg.maxnot) {
+                            // Delete message and warn user
+                        } else {
+                            // Save message
+                        }
+                        printf("Bad words: %d\n", i);
+                        break;
+                    case CMD_GETTOPICS:
+                        // User asked for topics
+                        break;
+                    case CMD_GETTITLES:
+                        // User asked for messages
+                        break;
+                    case CMD_GETMSG:
+                        // User asked for specific message
+                        break;
+                    case CMD_SUB:
+                        // User subscribed to a topic
+                        break;
+                    case CMD_UNSUB:
+                        // User unsubscribed to a topic
+                        break;
+                    case CMD_ALIVE:
+                        // User is ALIVE
+                        break;
+                    case CMD_IGN:
+                        // Ignore cmd
+                        break;
+                    default:
+                        // Send Err cmd
+                        break;
                     }
-                    printf("Bad words: %d\n", i);
-
-                    break;
-                case CMD_GETTOPICS:
-                    // User asked for topics
-                    break;
-                case CMD_GETTITLES:
-                    // User asked for messages
-                    break;
-                case CMD_GETMSG:
-                    // User asked for specific message
-                    break;
-                case CMD_SUB:
-                    // User subscribed to a topic
-                    break;
-                case CMD_UNSUB:
-                    // User unsubscribed to a topic
-                    break;
-                case CMD_ALIVE:
-                    // User is ALIVE
-                    break;
-                case CMD_IGN:
-                    // Ignore cmd
-                    break;
-                default:
-                    // Send Err cmd
-                    break;
                 }
             }
 
@@ -308,17 +323,75 @@ void *cmd_reader() {
     return NULL;
 }
 
+void test_signal(int i) {
+    printf("Testing signal.\n");
+}
+
+void *msg_duration() {
+    pthread_mutex_lock(&mtx_wait_for_init_td);
+    set_signal();
+    signal(SIGUSR1, test_signal);
+    printerr("Ready to check messages duration.", PERR_INFO);
+    pthread_mutex_unlock(&mtx_wait_for_init_td);
+    while (msg_duration_bool == 0) {
+        for (int i = 0; i < sv_cfg.maxmsg; i++) {
+            if (sv_cfg.msgs[i].id != -1) {
+                // Get [i]th msg and decrements duration
+                sv_cfg.msgs[i].msg.Duration--;
+                // Check if [i]th msg duration is 0
+                if (sv_cfg.msgs[i].msg.Duration == 0)
+                    // If msg duration is 0 set msg id to -1
+                    sv_cfg.msgs[i].id = -1;
+            }
+        }
+        // Wait 1 sec
+        sleep(1);
+    }
+    return NULL;
+}
+
+void *heartbeat() {
+    pthread_mutex_lock(&mtx_wait_for_init_td);
+    set_signal();
+    signal(SIGUSR2, test_signal);
+    printerr("Ready to send heartbeat to users.", PERR_INFO);
+    pthread_mutex_unlock(&mtx_wait_for_init_td);
+    while (heartbeat_bool == 0) {
+        for (int i = 0; i < sv_cfg.users_size; i++) {
+            if (sv_cfg.users[i].id != -1) {
+                // Set user alive to 0
+                sv_cfg.users[i].alive = 0;
+                // Send HB CMD to user
+                //write(sv_cfg.users[i].user_fd, &cmd, sizeof(COMMAND));
+            }
+        }
+        // Wait 10 secs
+        sleep(10);
+        for (int i = 0; i < sv_cfg.users_size; i++) {
+            // Sets ID -1 of users with alive 0
+            if (sv_cfg.users[i].id != -1 && sv_cfg.users[i].alive == 0) {
+                sv_cfg.users[i].id = -1;
+            }
+        }
+    }
+    return NULL;
+}
+
 void sv_exit(int return_val) {
-    if (return_val != -3) {
+    if (return_val != -3 && shutdown_init == 0) {
         shutdown();
     }
     exit(return_val);
 }
 
 void shutdown() {
+    shutdown_init = 1;
+    printf("[Server] Server shutting down. Please wait.\n");
     // TO DO: warn clients
 
     cmd_reader_bool = 1;
+    msg_duration_bool = 1;
+    heartbeat_bool = 1;
     if (sv_cfg.sv_fifo_fd != -1) {
         COMMAND cmd;
         cmd.cmd = CMD_IGN;
@@ -345,54 +418,18 @@ void printerr(const char *str, int val) {
     default:
         break;
     }
-    fprintf(stderr, "%s", str);
-    fprintf(stderr, "\n");
+    fprintf(stderr, "%s\n", str);
 }
-
-//void verificacao() {
-//    int fd1[2];
-//    int fd2[2];
-//
-//    if (pipe(fd1) < 0) {
-//        printf("Error in pipe");
-//        sv_exit(-1);
-//    }
-//    if (pipe(fd2) < 0) {
-//        printf("Error in pipe");
-//        sv_exit(-1);
-//    }
-//
-//    if (fork() == 0) {
-//
-//        //Read / scanf
-//        close(0);
-//        dup(fd1[0]);
-//        close(fd1[1]);
-//
-//        //write / printf
-//        close(1);
-//        dup(fd2[1]);
-//        close(fd2[0]);
-//
-//        execlp("./verificador", "./verificador", "la", NULL);
-//    } else {
-//        close(fd1[0]);
-//        close(fd2[1]);
-//        char str[20];
-//        write(fd1[1], "Ol� Pedro!!!\nola adeus 22\n", strlen("Ol� Pedro!!!\nola adeus 22\n"));
-//        write(fd1[1], "##MSGEND##\n", strlen("##MSGEND##\n"));
-//        read(fd2[0], str, 20);
-//        printf("%s\n", str);
-//    }
-//}
 
 void set_signal() {
     signal(SIGHUP, received_signal);
     signal(SIGINT, received_signal);
-    signal(SIGPIPE, received_signal);
+    // Ignore broken pipes...
+    signal(SIGPIPE, SIG_IGN);
     signal(SIGALRM, received_signal);
-    signal(SIGUSR1, received_signal);
-    signal(SIGUSR2, received_signal);
+    // Ignore SIGURS1 and SIGURS2
+    signal(SIGUSR1, SIG_IGN);
+    signal(SIGUSR2, SIG_IGN);
     signal(SIGSTOP, received_signal);
     signal(SIGTSTP, received_signal);
     signal(SIGTTIN, received_signal);
@@ -413,9 +450,9 @@ void adm_cmd_help() {
     printf("\tdel [message_id] - Deletes the message associated with the message_id.\n");
     printf("\tkick [user_id] - Kicks the user associated with the user_id.\n");
     printf("\tprune - Deletes topics with no messages associated and cancel subscriptions to those topics.\n");
-    printf("\tshutdown - Shuts the server down.\n");
     printf("\tverify [message] - Uses the 'verificador' program to verify the message for banned words.\n");
     printf("\tcfg - Shows the server's configuration.\n");
+    printf("\tshutdown - Shuts the server down.\n");
     printf("\thelp - Shows this.\n");
 }
 
@@ -468,7 +505,7 @@ int adm_cmd_verify(const char *ptr, int sv) {
             printf("[Server] Bad word count: %d\n", bwci);
         } else {
             // Not an adm command
-            // return number of bad words so that later on, the server can delete message
+            // return number of bad words so that later on, the server can "delete message"
             // and warn client if (bwci > sv_cfg.maxnot)
             return bwci;
         }

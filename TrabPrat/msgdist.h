@@ -1,3 +1,13 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+#include <pthread.h>
+#include <signal.h>
+
 // Disconnect command
 #define CMD_DC 100
 // Server disconnect command
@@ -52,10 +62,10 @@ typedef struct {
 } MESSAGE;
 
 typedef union {
-    USER us;                                    // Sent user
-    MESSAGE msg;                                // Sent message
-    char Topic[MAX_TPCTTL];                     // Sent topic
-    char *TT[MAX_TPCTTL];                       // Sent topics or titles
+    USER un_user;                               // Sent user
+    MESSAGE un_msg;                             // Sent message
+    char un_topic[MAX_TPCTTL];                  // Sent topic
+    char *un_tt[MAX_TPCTTL];                    // Sent topics or titles
 } CMD_UN;
 
 typedef struct {
@@ -65,5 +75,4 @@ typedef struct {
 } COMMAND;
 
 char sv_fifo[] = "/tmp/msgsv";
-
 int IsServerRunning(const char *path);
