@@ -16,4 +16,3 @@ clean:
 
 delexe:
 	rm msgdist_server msgdist_client verificador
-

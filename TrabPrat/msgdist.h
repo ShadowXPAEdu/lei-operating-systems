@@ -65,4 +65,5 @@ typedef struct {
 } COMMAND;
 
 char sv_fifo[] = "/tmp/msgsv";
+
 int IsServerRunning(const char *path);

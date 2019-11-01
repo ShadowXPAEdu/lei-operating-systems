@@ -44,7 +44,6 @@ int main(int argc, char* argv[], char** envp) {
             char *l;
             fgets(lala, 1000, stdin);
             l = strtok(lala, "\n");
-
             cl_cmd.cmd = CMD_NEWMSG;
 
             MESSAGE m;

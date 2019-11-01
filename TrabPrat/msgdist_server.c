@@ -267,6 +267,7 @@ void *cmd_reader() {
                         // Save message
                     }
                     printf("Bad words: %d\n", i);
+
                     break;
                 case CMD_GETTOPICS:
                     // User asked for topics
@@ -378,7 +379,7 @@ void printerr(const char *str, int val) {
 //        close(fd1[0]);
 //        close(fd2[1]);
 //        char str[20];
-//        write(fd1[1], "Olá Pedro!!!\nola adeus 22\n", strlen("Olá Pedro!!!\nola adeus 22\n"));
+//        write(fd1[1], "Olï¿½ Pedro!!!\nola adeus 22\n", strlen("Olï¿½ Pedro!!!\nola adeus 22\n"));
 //        write(fd1[1], "##MSGEND##\n", strlen("##MSGEND##\n"));
 //        read(fd2[0], str, 20);
 //        printf("%s\n", str);
