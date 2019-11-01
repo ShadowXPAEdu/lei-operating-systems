@@ -1,11 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <pthread.h>
 #include "msgdist.h"
 #include "msgdist_c.h"
 
@@ -36,7 +28,7 @@ int main(int argc, char* argv[], char** envp) {
 
             printf("User: %s\nFifo: %s\n", cl.Username, cl.FIFO);
 
-            un.us = cl;
+            un.un_user = cl;
             cl_cmd.Body = un;
 
             write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
@@ -44,6 +36,7 @@ int main(int argc, char* argv[], char** envp) {
             char *l;
             fgets(lala, 1000, stdin);
             l = strtok(lala, "\n");
+
             cl_cmd.cmd = CMD_NEWMSG;
 
             MESSAGE m;
@@ -53,7 +46,7 @@ int main(int argc, char* argv[], char** envp) {
             strcpy(m.Title, "Did you know?");
             strcpy(m.Body, l);
 
-            un.msg = m;
+            un.un_msg = m;
             cl_cmd.Body = un;
 
             write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
