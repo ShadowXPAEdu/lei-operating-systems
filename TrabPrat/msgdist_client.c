@@ -32,29 +32,33 @@ int main(int argc, char* argv[], char** envp) {
 
             USER cl;
             strcpy(cl.Username, argv[1]);
-            strcpy(cl.NamedFIFO, cl_cmd.From);
+            strcpy(cl.FIFO, cl_cmd.From);
 
-            printf("User: %s\nFifo: %s\n", cl.Username, cl.NamedFIFO);
+            printf("User: %s\nFifo: %s\n", cl.Username, cl.FIFO);
 
             un.us = cl;
             cl_cmd.Body = un;
 
             write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
-            char* lala;
-            scanf("%s", lala);
-
+            char lala[1000];
+            char *l;
+            fgets(lala, 1000, stdin);
+            l = strtok(lala, "\n");
             cl_cmd.cmd = CMD_NEWMSG;
 
             MESSAGE m;
 
-            m.id = 0;
+            m.Duration = 10;
             strcpy(m.Topic, "Games");
             strcpy(m.Title, "Did you know?");
-            strcpy(m.Body, "Odiwanoidwa diawoinwa oidwa\niadwodiaw idan\ndwadawdwadawawd!");
-            m.Duration = 10;
+            strcpy(m.Body, l);
 
             un.msg = m;
             cl_cmd.Body = un;
+
+            write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
+
+            cl_cmd.cmd = CMD_DC;
 
             write(sv_fd, (void*)&cl_cmd, sizeof(cl_cmd));
 
