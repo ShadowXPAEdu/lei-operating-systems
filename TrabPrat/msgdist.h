@@ -43,6 +43,7 @@
 // Ignore command
 #define CMD_IGN 2
 
+// Maximum string lengths
 #define MAX_BODY 1000
 #define MAX_TPCTTL 50
 #define MAX_USER 20

@@ -3,6 +3,7 @@
 void cl_exit(int return_val);
 
 typedef struct {
+    int sv_fifo_fd;
     int cl_fifo_fd;
     char cl_fifo[MAX_FIFO];
 } CL_CFG;
