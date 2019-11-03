@@ -12,7 +12,7 @@ int main(int argc, char* argv[], char** envp) {
         pthread_t tds[THREADS];
         // Initiate configuration
         init_config();
-        // Sets default action when signal is received
+        // Sets action when signal is received
         set_signal();
 
         // Open 'verificador'
@@ -42,6 +42,7 @@ int main(int argc, char* argv[], char** envp) {
         printerr("Accepting admin commands.", PERR_NORM);
         printf("Type 'help' for a list of commands.\n");
         pthread_mutex_unlock(&mtx_wait_for_init_td);
+        // Admin "menu"
         while (adm_cmd_reader() == 0);
 
 //        for (int i = 0; i < THREADS; i++) {
@@ -77,6 +78,7 @@ void init_config() {
     sv_cfg.next_uid = 0;
     sv_cfg.next_mid = 0;
     sv_cfg.next_tid = 0;
+//
     sv_cfg.n_msgs = 0;
     sv_cfg.n_topics = 0;
     // Allocate memory for messages
@@ -331,6 +333,9 @@ void* handle_connection(void* p_command) {
             break;
         case CMD_ALIVE:
             // User is ALIVE
+            pthread_mutex_lock(&mtx_user);
+            f_CMD_ALIVE(r_cmd);
+            pthread_mutex_unlock(&mtx_user);
             break;
         case CMD_IGN:
             // Ignore cmd
@@ -350,17 +355,17 @@ void f_CMD_CON(COMMAND r_cmd) {
     char username[MAX_USER];
     COMMAND s_cmd;
 
-    strncpy(s_cmd.Body.un_user.Username, r_cmd.Body.un_user.Username, strlen(r_cmd.Body.un_user.Username));
-    strncpy(s_cmd.Body.un_user.FIFO, r_cmd.Body.un_user.FIFO, strlen(r_cmd.Body.un_user.FIFO));
-    strncpy(s_cmd.From, sv_fifo, strlen(sv_fifo));
-    strncpy(username, r_cmd.Body.un_user.Username, strlen(r_cmd.Body.un_user.Username));
+    strncpy(s_cmd.Body.un_user.Username, r_cmd.Body.un_user.Username, MAX_USER);
+    strncpy(s_cmd.Body.un_user.FIFO, r_cmd.Body.un_user.FIFO, MAX_FIFO);
+    strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
+    strncpy(username, r_cmd.Body.un_user.Username, MAX_USER);
     while (get_uindex_by_username(r_cmd.Body.un_user.Username) != -1) {
         // Change username
         char *_u = malloc(MAX_USER * sizeof(char));
         sprintf(_u, "%s(%d)", username, x);
-        strncpy(r_cmd.Body.un_user.Username, _u, strlen(_u));
+        strncpy(r_cmd.Body.un_user.Username, _u, MAX_USER);
         free(_u);
-        strncpy(s_cmd.Body.un_user.Username, r_cmd.Body.un_user.Username, strlen(r_cmd.Body.un_user.Username));
+        strncpy(s_cmd.Body.un_user.Username, r_cmd.Body.un_user.Username, MAX_USER);
         x++;
     }
     if ((uid = add_user(r_cmd.Body.un_user)) >= 0) {
@@ -370,11 +375,23 @@ void f_CMD_CON(COMMAND r_cmd) {
         printerr(_u, PERR_INFO);
         free(_u);
         s_cmd.cmd = CMD_OK;
-        write(sv_cfg.users[uid].user_fd, &s_cmd, sizeof(COMMAND));
+        write(sv_cfg.users[ind].user_fd, &s_cmd, sizeof(COMMAND));
+        // Only alive after we reply OK to the connection
+        // so that heartbeat doesn't interfere
+        sv_cfg.users[ind].alive = 1;
     } else {
         s_cmd.cmd = CMD_ERR;
         strncpy(s_cmd.Body.un_topic, "Server is out of space.", strlen("Server is out of space."));
-        write(open(r_cmd.From, O_WRONLY), &s_cmd, sizeof(COMMAND));
+        int op = open(r_cmd.From, O_WRONLY);
+        write(op, &s_cmd, sizeof(COMMAND));
+        close(op);
+    }
+}
+
+void f_CMD_ALIVE(COMMAND r_cmd) {
+    int ind = get_uindex_by_FIFO(r_cmd.From);
+    if (ind != -1) {
+        sv_cfg.users[ind].alive = 1;
     }
 }
 
@@ -410,23 +427,19 @@ void *heartbeat() {
     pthread_mutex_lock(&mtx_wait_for_init_td);
     set_signal();
     signal(SIGUSR2, test_signal);
+    COMMAND cmd;
+    cmd.cmd = CMD_HEARTBEAT;
+    strncpy(cmd.From, sv_fifo, MAX_FIFO);
     printerr("Ready to send heartbeat to users.", PERR_INFO);
     pthread_mutex_unlock(&mtx_wait_for_init_td);
     while (heartbeat_bool == 0) {
         pthread_mutex_lock(&mtx_user);
         for (int i = 0; i < sv_cfg.users_size; i++) {
-            if (sv_cfg.users[i].id != -1) {
+            if (sv_cfg.users[i].id != -1 && sv_cfg.users[i].alive == 1) {
                 // Set user alive to 0
                 sv_cfg.users[i].alive = 0;
                 // Send HB CMD to user
-                for (int i = 0; i < sv_cfg.users_size; i++) {
-                    if (sv_cfg.users[i].id != -1) {
-                        COMMAND cmd;
-                        cmd.cmd = CMD_HEARTBEAT;
-                        strncpy(cmd.From, sv_fifo, strlen(sv_fifo));
-                        write(sv_cfg.users[i].user_fd, &cmd, sizeof(COMMAND));
-                    }
-                }
+                write(sv_cfg.users[i].user_fd, &cmd, sizeof(COMMAND));
             }
         }
         pthread_mutex_unlock(&mtx_user);
@@ -436,6 +449,7 @@ void *heartbeat() {
             // Sets ID -1 of users with alive 0
             if (sv_cfg.users[i].id != -1 && sv_cfg.users[i].alive == 0) {
                 sv_cfg.users[i].id = -1;
+                close(sv_cfg.users[i].user_fd);
             }
         }
         // Resize users, sorts users
@@ -464,9 +478,10 @@ void shutdown() {
         if (sv_cfg.users[i].id != -1) {
             COMMAND cmd;
             cmd.cmd = CMD_SDC;
-            strncpy(cmd.From, sv_fifo, strlen(sv_fifo));
+            strncpy(cmd.From, sv_fifo, MAX_FIFO);
             write(sv_cfg.users[i].user_fd, &cmd, sizeof(COMMAND));
             close(sv_cfg.users[i].user_fd);
+            free(sv_cfg.users[i].topic_ids);
         }
     }
 //    cmd_reader_bool = 1;
@@ -477,6 +492,9 @@ void shutdown() {
 //        cmd.cmd = CMD_IGN;
 //        write(sv_cfg.sv_fifo_fd, &cmd, sizeof(cmd));
 //    }
+    free(sv_cfg.msgs);
+    free(sv_cfg.topics);
+    free(sv_cfg.users);
     close(sv_cfg.sv_fifo_fd);
     printerr("Named pipe closed.", PERR_INFO);
     unlink(sv_fifo);
@@ -569,7 +587,7 @@ void adm_cmd_filter(int on) {
 
 void adm_cmd_users() {
     pthread_mutex_lock(&mtx_user);
-    printf("Current number of users: %d\n%d\n", count_users(), sv_cfg.users_size);
+    printf("Current number of users: %d\n", count_users());
     for (int i = 0; i < sv_cfg.users_size; i++) {
         // Users with ID = -1 don't count as users
         if (sv_cfg.users[i].id != -1) {
@@ -779,9 +797,9 @@ int add_user(USER user) {
     } else  {
         // Add user to the index
         sv_cfg.users[d].id = sv_cfg.next_uid;
-        sv_cfg.users[d].alive = 1;
-        sv_cfg.users[d].user_fd = open(user.FIFO, O_WRONLY);
+        sv_cfg.users[d].alive = 0;
         sv_cfg.users[d].user = user;
+        sv_cfg.users[d].user_fd = open(sv_cfg.users[d].user.FIFO, O_WRONLY);
         sv_cfg.next_uid++;
         return sv_cfg.users[d].id;
     }

@@ -1,3 +1,6 @@
+#ifndef MSGDIST_S
+#define MSGDIST_S
+
 // Printerr commands
 #define PERR_NORM 0
 #define PERR_ERROR 1
@@ -38,6 +41,7 @@ void *heartbeat();
 
 // Command handling functions
 void f_CMD_CON(COMMAND r_cmd);
+void f_CMD_ALIVE(COMMAND r_cmd);
 
 // Admin command functions
 void adm_cmd_help();
@@ -123,3 +127,4 @@ void subscribe(const char* FIFO, int topic_id);
 void unsubscribe(const char* FIFO, int topic_id);
 void resize_sub();
 
+#endif // MSGDIST_S

@@ -1,3 +1,6 @@
+#ifndef MSGDIST
+#define MSGDIST
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -75,5 +78,9 @@ typedef struct {
     CMD_UN Body;                                // One of the above types (user, message, topic, topics or titles)
 } COMMAND;
 
-char sv_fifo[] = "/tmp/msgsv";
+#define sv_fifo "/tmp/msgsv"
+//char sv_fifo[] = "/tmp/msgsv";
 int IsServerRunning(const char *path);
+char *CMD_ID_to_STR(int CMD);
+
+#endif // MSGDIST
