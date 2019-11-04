@@ -4,7 +4,7 @@
 int main(int argc, char* argv[], char** envp) {
     if (argc != 2) {
         printf("You need to specify a username!\nTry %s [username]\n", argv[0]);
-        cl_exit(-1);
+        cl_exit(-3);
     } else {
         // 5 characters in case server needs to add numbers in front
         // Example: username = User / if server has a 'User' it will change to
@@ -12,13 +12,14 @@ int main(int argc, char* argv[], char** envp) {
         strncpy(cl_cfg.cl_username, argv[1], (MAX_USER - 5));
         if (IsServerRunning(sv_fifo) == 0) {
             printf("Server is not online...\nPlease try another time.\n");
-            cl_exit(-1);
+            cl_exit(-3);
         } else {
             pthread_t tds;
             init_config();
             // Server is online.. try to connect
             if (mkfifo(cl_cfg.cl_fifo, 0666) == 0) {
-                if ((cl_cfg.cl_fifo_fd = open(cl_cfg.cl_fifo, O_RDWR)) == -1) {
+                cl_cfg.cl_fifo_fd = open(cl_cfg.cl_fifo, O_RDWR);
+                if (cl_cfg.cl_fifo_fd == -1) {
                     printf("Error opening named pipe.\n");
                     cl_exit(-1);
                 } else {
@@ -46,7 +47,7 @@ int main(int argc, char* argv[], char** envp) {
                     }
 
                     if (pthread_create(&tds, NULL, cmd_reader, NULL) != 0) {
-                        cl_exit(-3);
+                        cl_exit(-2);
                     }
 
                     // Main thread work ...
@@ -69,22 +70,25 @@ int main(int argc, char* argv[], char** envp) {
 
 void init_config() {
     sprintf(cl_cfg.cl_fifo, "/tmp/%d", getpid());
-    if ((cl_cfg.sv_fifo_fd = open(sv_fifo, O_WRONLY)) == -1) {
+    cl_cfg.sv_fifo_fd = open(sv_fifo, O_WRONLY);
+    if (cl_cfg.sv_fifo_fd == -1) {
         cl_exit(-3);
     }
     set_signal();
 }
 
 void *cmd_reader() {
+    pthread_t hc;
     while (cmd_reader_bool == 0) {
         COMMAND cmd;
         cmd.cmd = CMD_IGN;
         read(cl_cfg.cl_fifo_fd, &cmd, sizeof(COMMAND));
 
-        pthread_t hc;
         COMMAND *cmd2 = malloc(sizeof(COMMAND));
         *cmd2 = cmd;
-        pthread_create(&hc, NULL, handle_connection, cmd2);
+        if (pthread_create(&hc, NULL, handle_connection, cmd2) != 0) {
+            free(cmd2);
+        }
     }
 
     return NULL;
@@ -117,7 +121,8 @@ void f_CMD_HEARTBEAT(COMMAND r_cmd) {
 
 void f_CMD_SDC(COMMAND r_cmd) {
     // Server disconnected
-    cl_exit(r_cmd.cmd);
+    sv_shutdown = 1;
+    cl_exit(-2);
 }
 
 void set_signal() {
@@ -134,7 +139,7 @@ void set_signal() {
 }
 
 void received_signal(int i) {
-    cl_exit(i);
+    cl_exit(-2);
 }
 
 void received_sigusr1(int i) {

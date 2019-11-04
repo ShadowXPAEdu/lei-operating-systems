@@ -31,7 +31,7 @@ void test_signal(int i);
 void shutdown();
 void init_config();
 void init_verificador();
-void printerr(const char* str, int val);
+void printerr(const char* str, int val, int adm);
 
 // Thread functions
 void *cmd_reader();
@@ -128,3 +128,4 @@ void unsubscribe(const char* FIFO, int topic_id);
 void resize_sub();
 
 #endif // MSGDIST_S
+
