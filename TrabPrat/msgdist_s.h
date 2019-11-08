@@ -42,6 +42,7 @@ void *heartbeat();
 // Command handling functions
 void f_CMD_CON(COMMAND r_cmd);
 void f_CMD_ALIVE(COMMAND r_cmd);
+void f_CMD_DC(COMMAND r_cmd);
 
 // Admin command functions
 void adm_cmd_help();
@@ -110,22 +111,23 @@ pthread_mutex_t mtx_wait_for_init_td = PTHREAD_MUTEX_INITIALIZER;
 
 // User functions
 int count_users();
-SV_USER *get_user_by_id(int id);
-SV_USER *get_user_by_FIFO(const char* FIFO);
-SV_USER *get_user_by_username(const char* username);
 void resize_users();                // Reallocates memory
 void sort_users();                  // Puts users with valid ID's in front
 int add_user(USER user);
+void rem_user(const char* FIFO);
 int get_uindex_by_id(int id);
 int get_uindex_by_FIFO(const char* FIFO);
 int get_uindex_by_username(const char* username);
+int get_next_u_index();
+
+SV_USER *get_user_by_id(int id);
+SV_USER *get_user_by_FIFO(const char* FIFO);
+SV_USER *get_user_by_username(const char* username);
 
 // Unimplemented
-void rem_user(const char* FIFO);
-int get_next_u_index();
 void subscribe(const char* FIFO, int topic_id);
 void unsubscribe(const char* FIFO, int topic_id);
-void resize_sub();
+void resize_sub(const char* FIFO);
 
 #endif // MSGDIST_S
 

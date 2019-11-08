@@ -45,12 +45,12 @@ int main(int argc, char* argv[], char** envp) {
         // Admin "menu"
         while (adm_cmd_reader() == 0);
 
-//        for (int i = 0; i < THREADS; i++) {
-//            pthread_join(tds[i], NULL);
-//        }
         for (int i = 0; i < THREADS; i++) {
-            pthread_cancel(tds[i]);
+            pthread_join(tds[i], NULL);
         }
+//        for (int i = 0; i < THREADS; i++) {
+//            pthread_cancel(tds[i]);
+//        }
         sv_exit(0);
     }
 }
@@ -301,7 +301,9 @@ void* handle_connection(void* p_command) {
             break;
         case CMD_DC:
             // User disconnecting
-
+            pthread_mutex_lock(&mtx_user);
+            f_CMD_DC(r_cmd);
+            pthread_mutex_unlock(&mtx_user);
             break;
         case CMD_NEWMSG:
             // User sent new msg
@@ -358,7 +360,7 @@ void f_CMD_CON(COMMAND r_cmd) {
     strncpy(s_cmd.Body.un_user.FIFO, r_cmd.Body.un_user.FIFO, MAX_FIFO);
     strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
     strncpy(username, r_cmd.Body.un_user.Username, MAX_USER);
-    while (get_uindex_by_username(r_cmd.Body.un_user.Username) != -1) {
+    while (get_uindex_by_username(r_cmd.Body.un_user.Username) != -1 && x != 100) {
         // Change username
         char *_u = malloc(MAX_USER * sizeof(char));
         snprintf(_u, MAX_USER, "%s(%d)", username, x);
@@ -381,11 +383,15 @@ void f_CMD_CON(COMMAND r_cmd) {
         sv_cfg.users[ind].alive = 1;
     } else {
         s_cmd.cmd = CMD_ERR;
-        strncpy(s_cmd.Body.un_topic, "Server is out of space.", strlen("Server is out of space."));
+        strncpy(s_cmd.Body.un_topic, "Server is out of space, or username is not available.", strlen("Server is out of space, or username is not available."));
         int op = open(r_cmd.From, O_WRONLY);
         write(op, &s_cmd, sizeof(COMMAND));
         close(op);
     }
+}
+
+void f_CMD_DC(COMMAND r_cmd) {
+    rem_user(r_cmd.From);
 }
 
 void f_CMD_ALIVE(COMMAND r_cmd) {
@@ -448,8 +454,9 @@ void *heartbeat() {
         for (int i = 0; i < sv_cfg.users_size; i++) {
             // Sets ID -1 of users with alive 0
             if (sv_cfg.users[i].id != -1 && sv_cfg.users[i].alive == 0) {
-                sv_cfg.users[i].id = -1;
-                close(sv_cfg.users[i].user_fd);
+                rem_user(sv_cfg.users[i].user.FIFO);
+//                sv_cfg.users[i].id = -1;
+//                close(sv_cfg.users[i].user_fd);
             }
         }
         // Resize users, sorts users
@@ -471,21 +478,29 @@ void sv_exit(int return_val) {
 }
 
 void shutdown() {
+    COMMAND cmd;
     shutdown_init = 1;
     printf("[Server] Server shutting down. Please wait.\n");
+    pthread_mutex_lock(&mtx_user);
     for (int i = 0; i < sv_cfg.users_size; i++) {
         if (sv_cfg.users[i].id != -1) {
-            COMMAND cmd;
             cmd.cmd = CMD_SDC;
             strncpy(cmd.From, sv_fifo, MAX_FIFO);
+            sv_cfg.users[i].id = -1;
             write(sv_cfg.users[i].user_fd, &cmd, sizeof(COMMAND));
             close(sv_cfg.users[i].user_fd);
         }
     }
-    close(sv_cfg.sv_fifo_fd);
-    printerr("Named pipe closed.", PERR_INFO, 0);
-    unlink(sv_fifo);
-    printerr("Named pipe deleted.", PERR_INFO, 0);
+    pthread_mutex_unlock(&mtx_user);
+    heartbeat_bool = 1;
+    msg_duration_bool = 1;
+    cmd_reader_bool = 1;
+    cmd.cmd = CMD_IGN;
+    write(sv_cfg.sv_fifo_fd, &cmd, sizeof(COMMAND));
+//    close(sv_cfg.sv_fifo_fd);
+//    printerr("Named pipe closed.", PERR_INFO, 0);
+//    unlink(sv_fifo);
+//    printerr("Named pipe deleted.", PERR_INFO, 0);
     kill(sv_cfg.sv_verificador_pid, SIGUSR2);
 }
 
@@ -783,8 +798,10 @@ int get_next_u_index() {
 int add_user(USER user) {
     resize_users();
     int d = get_next_u_index();
-    if (d == -1) {
+    int n = get_uindex_by_username(user.Username);
+    if (d == -1 || n != -1) {
         // No space
+        // or username already exists
         return -1;
     } else  {
         // Add user to the index
@@ -796,9 +813,21 @@ int add_user(USER user) {
         //sv_cfg.users[d].user = user;
         sv_cfg.users[d].user_fd = open(sv_cfg.users[d].user.FIFO, O_WRONLY);
         sv_cfg.users[d].sub_size = INIT_MALLOC_SIZE;
-        sv_cfg.users[d].topic_ids = NULL;
+        sv_cfg.users[d].topic_ids = malloc(INIT_MALLOC_SIZE * sizeof(int));
         sv_cfg.next_uid++;
         return sv_cfg.users[d].id;
+    }
+}
+
+void rem_user(const char* FIFO) {
+    int ind = get_uindex_by_FIFO(FIFO);
+    if (ind != -1) {
+        sv_cfg.users[ind].id = -1;
+        sv_cfg.users[ind].alive = 0;
+        sv_cfg.users[ind].sub_size = INIT_MALLOC_SIZE;
+        free(sv_cfg.users[ind].topic_ids);
+        close(sv_cfg.users[ind].user_fd);
+        sv_cfg.users[ind].user_fd = 0;
     }
 }
 
