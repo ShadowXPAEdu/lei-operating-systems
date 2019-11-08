@@ -1,3 +1,6 @@
+#ifndef MSGDIST_S
+#define MSGDIST_S
+
 // Printerr commands
 #define PERR_NORM 0
 #define PERR_ERROR 1
@@ -28,17 +31,29 @@ void test_signal(int i);
 void shutdown();
 void init_config();
 void init_verificador();
-void printerr(const char* str, int val);
+void printerr(const char* str, int val, int adm);
 
 // Thread functions
 void *cmd_reader();
+void *handle_connection(void* command);
 void *msg_duration();
 void *heartbeat();
+
+// Command handling functions
+void f_CMD_CON(COMMAND r_cmd);
+void f_CMD_ALIVE(COMMAND r_cmd);
+void f_CMD_DC(COMMAND r_cmd);
 
 // Admin command functions
 void adm_cmd_help();
 void adm_cmd_users();
+void adm_cmd_topics();
+void adm_cmd_msg();
+void adm_cmd_prune();
 void adm_cmd_filter(int on);
+void adm_cmd_topic(const char* ptr);
+void adm_cmd_del(const char* ptr);
+void adm_cmd_kick(const char* ptr);
 int adm_cmd_verify(const char* ptr, int sv);
 void adm_cmd_cfg();
 
@@ -59,7 +74,7 @@ typedef struct {
     USER user;                      // User
     int alive;                      // User alive = 1/dead = 0
     int sub_size;                   // Malloc size for topics
-    SV_TOPIC *topics;               // Subscribed topics
+    int *topic_ids;                 // Subscribed topic ids
 } SV_USER;
 
 typedef struct {
@@ -67,7 +82,6 @@ typedef struct {
     int sv_verificador_pid;         // Verificador PID
     int sv_verificador_pipes[2];    // Anonymous pipes Read 0/Write 1
 
-    int n_users;                    // Current number of users
     int next_uid;                   // Next user id
     int users_size;                 // Malloc size for users
     SV_USER *users;                 // Users
@@ -94,4 +108,26 @@ pthread_mutex_t mtx_user = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mtx_msg = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mtx_topic = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mtx_wait_for_init_td = PTHREAD_MUTEX_INITIALIZER;
+
+// User functions
+int count_users();
+void resize_users();                // Reallocates memory
+void sort_users();                  // Puts users with valid ID's in front
+int add_user(USER user);
+void rem_user(const char* FIFO);
+int get_uindex_by_id(int id);
+int get_uindex_by_FIFO(const char* FIFO);
+int get_uindex_by_username(const char* username);
+int get_next_u_index();
+
+SV_USER *get_user_by_id(int id);
+SV_USER *get_user_by_FIFO(const char* FIFO);
+SV_USER *get_user_by_username(const char* username);
+
+// Unimplemented
+void subscribe(const char* FIFO, int topic_id);
+void unsubscribe(const char* FIFO, int topic_id);
+void resize_sub(const char* FIFO);
+
+#endif // MSGDIST_S
 

@@ -1,3 +1,6 @@
+#ifndef MSGDIST
+#define MSGDIST
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -43,6 +46,7 @@
 // Ignore command
 #define CMD_IGN 2
 
+// Maximum string lengths
 #define MAX_BODY 1000
 #define MAX_TPCTTL 50
 #define MAX_USER 20
@@ -74,5 +78,9 @@ typedef struct {
     CMD_UN Body;                                // One of the above types (user, message, topic, topics or titles)
 } COMMAND;
 
-char sv_fifo[] = "/tmp/msgsv";
+#define sv_fifo "/tmp/msgsv"
+//char sv_fifo[] = "/tmp/msgsv";
 int IsServerRunning(const char *path);
+char *CMD_ID_to_STR(int CMD);
+
+#endif // MSGDIST
