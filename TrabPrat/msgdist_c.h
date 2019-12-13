@@ -1,14 +1,37 @@
 #ifndef MSGDIST_C
 #define MSGDIST_C
 
+#include <ncurses.h>
+
+// Number of windows
+#define NUM_WIN 3
+// Window header height
+#define WIN_H_H 5
+// Window header width
+#define WIN_H_W 60
+
+// Init colors
+// Yellow Black
+#define C_YB 1
+#define C_RB 2
+#define C_BW 3
+
 int cmd_reader_bool = 0;
 int shutdown_init = 0;
 int sv_shutdown = 0;
+int init_win = 0;
+int sv_kick = 0;
 
 void init_config();
 void set_signal();
 void received_signal(int i);
 void received_sigusr1(int i);
+void init_client();
+void win_print(int w, int x, int y, char *str);
+void win_color(int w, int c_pair, int on);
+void win_erase(int w);
+void win_refresh(int w);
+void win_draw(int w);
 void shutdown();
 void cl_exit(int return_val);
 
@@ -17,12 +40,24 @@ void *handle_connection(void* p_cmd);
 
 void f_CMD_HEARTBEAT(COMMAND r_cmd);
 void f_CMD_SDC(COMMAND r_cmd);
+void f_CMD_FDC(COMMAND r_cmd);
+void f_CMD_SUB(COMMAND r_cmd);
+void f_CMD_ERR(COMMAND r_cmd);
+
+typedef struct {
+    WINDOW *w;
+    int height;
+    int width;
+} CL_WIN;
 
 typedef struct {
     int sv_fifo_fd;
     int cl_fifo_fd;
+    int cl_unr_msg;
     char cl_fifo[MAX_FIFO];
     char cl_username[MAX_USER];
+
+    CL_WIN win[NUM_WIN];
 } CL_CFG;
 
 CL_CFG cl_cfg;
