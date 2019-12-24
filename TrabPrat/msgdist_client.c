@@ -102,6 +102,10 @@ int main(int argc, char *argv[], char **envp) {
                             s_cmd2.cmd = CMD_SUB;
                             s_cmd2.Body.un_tt = 1;
                             write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
+                        } else if (op == '7') {
+                            s_cmd2.cmd = CMD_UNSUB;
+                            s_cmd2.Body.un_tt = 1;
+                            write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
                         }
                     } while (op != 'q');
 
@@ -310,7 +314,7 @@ void win_draw(int w) {
 void shutdown() {
 	shutdown_init = 1;
 	COMMAND cmd;
-	if (sv_shutdown == 0) {
+	if (sv_shutdown == 0 && sv_kick == 0) {
 		cmd.cmd = CMD_DC;
 		strncpy(cmd.From, cl_cfg.cl_fifo, MAX_FIFO);
 		write(cl_cfg.sv_fifo_fd, &cmd, sizeof(COMMAND));

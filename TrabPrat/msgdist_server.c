@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[], char **envp) {
 	if (argc == 2)
-		if (strcmp(argv[1], "rst_fifo") == 0)
+		if (strcmp(argv[1], "-rst") == 0)
 			unlink(sv_fifo);
 	if (IsServerRunning(sv_fifo) != 0) {
 		printerr("Looks like the server is already running...\nClosing instance...\n", PERR_ERROR, 0);
@@ -324,14 +324,19 @@ void *handle_connection(void *p_command) {
 			break;
 		case CMD_SUB:
 			// User subscribed to a topic
-            pthread_mutex_lock(&mtx_topic);
-            pthread_mutex_lock(&mtx_user);
-            f_CMD_SUB(r_cmd);
-            pthread_mutex_unlock(&mtx_user);
-            pthread_mutex_unlock(&mtx_topic);
+			pthread_mutex_lock(&mtx_topic);
+			pthread_mutex_lock(&mtx_user);
+			f_CMD_SUB(r_cmd);
+			pthread_mutex_unlock(&mtx_user);
+			pthread_mutex_unlock(&mtx_topic);
 			break;
 		case CMD_UNSUB:
 			// User unsubscribed to a topic
+			pthread_mutex_lock(&mtx_topic);
+			pthread_mutex_lock(&mtx_user);
+			f_CMD_UNSUB(r_cmd);
+			pthread_mutex_unlock(&mtx_user);
+			pthread_mutex_unlock(&mtx_topic);
 			break;
 		case CMD_ALIVE:
 			// User is ALIVE
@@ -430,26 +435,26 @@ void f_CMD_NEWMSG(COMMAND r_cmd) {
 				sv_cfg.msgs[ind].msg.Duration += r_cmd.Body.un_msg.Duration;
 			} else {
 				// Check if topic exists
-                pthread_mutex_lock(&mtx_topic);
-                if (get_tindex_by_topic_name(r_cmd.Body.un_msg.Topic) == -1) {
-                    // Topic doesn't exist add it to the list
-                    add_topic(r_cmd.Body.un_msg.Topic);
-                } else {
-                    // Topic exists check who needs to be warned
-                    // Lock users to warn each user
-                    pthread_mutex_lock(&mtx_user);
-                    int num;
-                    int *userfd = get_ufd_subbed_to(r_cmd.Body.un_msg.Topic, &num);
-                    COMMAND s_cmd;
-                    s_cmd.cmd = CMD_SUB;
-                    strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
-                    strncpy(s_cmd.Body.un_topic, r_cmd.Body.un_msg.Topic, MAX_TPCTTL);
-                    for (int i = 0; i < num; i++) {
-                        write(userfd[i], &s_cmd, sizeof(COMMAND));
-                    }
-                    pthread_mutex_unlock(&mtx_user);
-                }
-                pthread_mutex_unlock(&mtx_topic);
+				pthread_mutex_lock(&mtx_topic);
+				if (get_tindex_by_topic_name(r_cmd.Body.un_msg.Topic) == -1) {
+					// Topic doesn't exist add it to the list
+					add_topic(r_cmd.Body.un_msg.Topic);
+				} else {
+					// Topic exists check who needs to be warned
+					// Lock users to warn each user
+					pthread_mutex_lock(&mtx_user);
+					int num;
+					int *userfd = get_ufd_subbed_to(r_cmd.Body.un_msg.Topic, &num);
+					COMMAND s_cmd;
+					s_cmd.cmd = CMD_SUB;
+					strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
+					strncpy(s_cmd.Body.un_topic, r_cmd.Body.un_msg.Topic, MAX_TPCTTL);
+					for (int i = 0; i < num; i++) {
+						write(userfd[i], &s_cmd, sizeof(COMMAND));
+					}
+					pthread_mutex_unlock(&mtx_user);
+				}
+				pthread_mutex_unlock(&mtx_topic);
 				add_msg(r_cmd.Body.un_msg);
 			}
 		}
@@ -476,11 +481,11 @@ void f_CMD_GETMSG(COMMAND r_cmd) {
 }
 
 void f_CMD_SUB(COMMAND r_cmd) {
-    subscribe(r_cmd.From, r_cmd.Body.un_tt);
+	subscribe(r_cmd.From, r_cmd.Body.un_tt);
 }
 
 void f_CMD_UNSUB(COMMAND r_cmd) {
-
+	unsubscribe(r_cmd.From, r_cmd.Body.un_tt);
 }
 
 void f_CMD_default(COMMAND r_cmd) {
@@ -725,21 +730,76 @@ void adm_cmd_msg() {
 }
 
 void adm_cmd_prune() {
-	printf("Coming soon...\n");
+	int i, j, k, t;
+	pthread_mutex_lock(&mtx_topic);
+	// foreach topic
+	for (i = 0; i < sv_cfg.topic_size; i++) {
+		if (sv_cfg.topics[i].id != -1) {
+            t = 0;
+            // foreach message
+            pthread_mutex_lock(&mtx_msg);
+			for (j = 0; j < sv_cfg.maxmsg; j++) {
+				if (sv_cfg.msgs[j].id != -1 && strcmp(sv_cfg.topics[i].topic, sv_cfg.msgs[j].msg.Topic) == 0) {
+					t = 1;
+					break;
+				}
+			}
+            if (t == 0) {
+                // No messages with the same topic
+                // Delete topic and unsubscribe
+                pthread_mutex_lock(&mtx_user);
+                int num, u_ind;
+                // Get user file descriptors of who is subscribed to certain topic
+                int *ufd = get_ufd_subbed_to(sv_cfg.topics[i].topic, &num);
+                // foreach user subscribed
+                for (k = 0; k < num; k++) {
+                    u_ind = get_uindex_by_fd(ufd[k]);
+                    unsubscribe(sv_cfg.users[k].user.FIFO, sv_cfg.topics[i].id);
+                }
+                pthread_mutex_unlock(&mtx_user);
+                rem_topic(sv_cfg.topics[i].id);
+            }
+            pthread_mutex_unlock(&mtx_msg);
+		}
+	}
+	pthread_mutex_unlock(&mtx_topic);
 	// Lock topics and messages to check if topics exist in messages
 	// Lock users to cancel subscriptions
 }
 
 void adm_cmd_topic(const char *ptr) {
-	printf("Coming soon...\n");
-	// Check ptr content
-	// Lock topics and messages to get messages with that topic
+	char top[MAX_TPCTTL];
+	snprintf(top, MAX_TPCTTL, "%s", ptr);
+	pthread_mutex_lock(&mtx_topic);
+	int t_i = get_tindex_by_topic_name(top);
+	if (t_i == -1) {
+		printerr("Invalid topic name.", PERR_WARNING, 0);
+	} else {
+		pthread_mutex_lock(&mtx_msg);
+		printf("Messages with topic '%s':\n", top);
+		for (int i = 0; i < sv_cfg.maxmsg; i++) {
+			if (sv_cfg.msgs[i].id != -1 && strcmp(sv_cfg.msgs[i].msg.Topic, top) == 0) {
+				printf("\tID: %d\tTitle: %s\tAuthor: %s\tTime left: %d seconds\n", sv_cfg.msgs[i].id, sv_cfg.msgs[i].msg.Title, sv_cfg.msgs[i].msg.Author, sv_cfg.msgs[i].msg.Duration);
+			}
+		}
+		pthread_mutex_unlock(&mtx_msg);
+	}
+	pthread_mutex_unlock(&mtx_topic);
 }
 
 void adm_cmd_del(const char *ptr) {
-	printf("Coming soon...\n");
-	// Check ptr content
-	// Lock messages to delete message
+	int i = atoi(ptr);
+	pthread_mutex_lock(&mtx_msg);
+	if (i <= 0 || i >= sv_cfg.next_mid) {
+		printerr("Invalid ID.", PERR_WARNING, 0);
+	} else {
+		if (rem_msg(i)) {
+			printerr("Message deleted.", PERR_INFO, 0);
+		} else {
+			printerr("Invalid ID.", PERR_WARNING, 0);
+		}
+	}
+	pthread_mutex_unlock(&mtx_msg);
 }
 
 void adm_cmd_kick(const char *ptr) {
@@ -755,6 +815,7 @@ void adm_cmd_kick(const char *ptr) {
 			strncpy(cmd.From, sv_fifo, MAX_FIFO);
 			write(sv_cfg.users[ind].user_fd, &cmd, sizeof(COMMAND));
 			rem_user2(ind);
+			printerr("User kicked.", PERR_INFO, 0);
 		} else {
 			printerr("Invalid ID.", PERR_WARNING, 0);
 		}
@@ -793,20 +854,20 @@ int adm_cmd_verify(const char *ptr, int sv) {
 }
 
 void adm_cmd_cfg() {
-	printf("MAXMSG: %d\n", sv_cfg.maxmsg);
-	printf("MAXNOT: %d\n", sv_cfg.maxnot);
-	printf("WORDSNOT: %s\n", sv_cfg.wordsnot);
-    pthread_mutex_lock(&mtx_user);
-	printf("Current users: %d\n", count_users());
-    pthread_mutex_unlock(&mtx_user);
-    pthread_mutex_lock(&mtx_topic);
-	printf("Current topics: %d\n", count_topics());
-    pthread_mutex_unlock(&mtx_topic);
-    pthread_mutex_lock(&mtx_msg);
-	printf("Current messages: %d\n", sv_cfg.n_msgs);
-    pthread_mutex_unlock(&mtx_msg);
-	printf("Server PID: %d\n", getpid());
-	printf("'Verificador' PID: %d\n", sv_cfg.sv_verificador_pid);
+	printf("\tMAXMSG: %d\n", sv_cfg.maxmsg);
+	printf("\tMAXNOT: %d\n", sv_cfg.maxnot);
+	printf("\tWORDSNOT: %s\n", sv_cfg.wordsnot);
+	pthread_mutex_lock(&mtx_user);
+	printf("\tCurrent users: %d\n", count_users());
+	pthread_mutex_unlock(&mtx_user);
+	pthread_mutex_lock(&mtx_topic);
+	printf("\tCurrent topics: %d\n", count_topics());
+	pthread_mutex_unlock(&mtx_topic);
+	pthread_mutex_lock(&mtx_msg);
+	printf("\tCurrent messages: %d\n", sv_cfg.n_msgs);
+	pthread_mutex_unlock(&mtx_msg);
+	printf("\tServer PID: %d\n", getpid());
+	printf("\t'Verificador' PID: %d\n", sv_cfg.sv_verificador_pid);
 }
 
 // ********************** ADMINISTRATOR COMMAND FUNCTIONS END
@@ -937,9 +998,9 @@ int add_user(USER user) {
 		sv_cfg.users[d].user_fd = open(sv_cfg.users[d].user.FIFO, O_WRONLY);
 		sv_cfg.users[d].sub_size = INIT_MALLOC_SIZE;
 		sv_cfg.users[d].topic_ids = malloc(INIT_MALLOC_SIZE * sizeof(int));
-        for (int i = 0; i < sv_cfg.users[d].sub_size; i++) {
-            sv_cfg.users[d].topic_ids[i] = -1;
-        }
+		for (int i = 0; i < sv_cfg.users[d].sub_size; i++) {
+			sv_cfg.users[d].topic_ids[i] = -1;
+		}
 		sv_cfg.next_uid++;
 		return sv_cfg.users[d].id;
 	}
@@ -991,48 +1052,78 @@ int get_uindex_by_username(const char *username) {
 	return -1;
 }
 
+int get_uindex_by_fd(int fd) {
+	for (int i = 0; i < sv_cfg.users_size; i++) {
+		if (sv_cfg.users[i].user_fd == fd) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 void subscribe(const char *FIFO, int topic_id) {
-    int tind = get_tindex_by_id(topic_id);
-    int uind = get_uindex_by_FIFO(FIFO);
-    if (uind != -1) {
-        if (is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id)) {
-            // Send CMD_ERR
-        } else {
-            // Add topic to subbed list
-            resize_subs(sv_cfg.users[uind].id);
-            int nstid = get_next_st_index(sv_cfg.users[uind].id);
-            sv_cfg.users[uind].topic_ids[nstid] = topic_id;
-        }
-    } else {
-        // Send CMD_ERR
-    }
+	int tind = get_tindex_by_id(topic_id);
+	int uind = get_uindex_by_FIFO(FIFO);
+	if (uind != -1) {
+		if (is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id) != -1) {
+			// Send CMD_ERR
+			// Already subscribed
+		} else {
+			// Add topic to subbed list
+			resize_subs(sv_cfg.users[uind].id);
+			int nstid = get_next_st_index(sv_cfg.users[uind].id);
+			sv_cfg.users[uind].topic_ids[nstid] = topic_id;
+		}
+	} else {
+		// Send CMD_ERR
+		// User not connected
+	}
+}
+
+void unsubscribe(const char *FIFO, int topic_id) {
+	int tind = get_tindex_by_id(topic_id);
+	int uind = get_uindex_by_FIFO(FIFO);
+	int tu_ind;
+	if (uind != -1) {
+		if ((tu_ind = is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id)) != -1) {
+			// Is subscribed, then unsubscribe
+			sv_cfg.users[uind].topic_ids[tu_ind] = -1;
+			resize_subs(sv_cfg.users[uind].id);
+		} else {
+			// Send CMD_ERR
+			// User not subscribed to this topic
+		}
+	} else {
+		// Send CMD_ERR
+		// User not connected
+	}
 }
 
 int get_next_st_index(int uid) {
-    int ind = get_uindex_by_id(uid);
-    for (int i = 0; i < sv_cfg.users[ind].sub_size; i++) {
-        if (sv_cfg.users[ind].topic_ids[i] == -1)
-            return i;
-    }
-    return -1;
+	int ind = get_uindex_by_id(uid);
+	for (int i = 0; i < sv_cfg.users[ind].sub_size; i++) {
+		if (sv_cfg.users[ind].topic_ids[i] == -1)
+			return i;
+	}
+	return -1;
 }
 
 int count_subs(int uid) {
-    int tmp = 0;
-    int ind = get_uindex_by_id(uid);
-    if (ind != -1) {
-        for (int i = 0; i < sv_cfg.users[ind].sub_size; i++) {
-            if (sv_cfg.users[ind].topic_ids[i] != -1) {
-                tmp++;
-            }
-        }
-    }
-    return tmp;
+	int tmp = 0;
+	int ind = get_uindex_by_id(uid);
+	if (ind != -1) {
+		for (int i = 0; i < sv_cfg.users[ind].sub_size; i++) {
+			if (sv_cfg.users[ind].topic_ids[i] != -1) {
+				tmp++;
+			}
+		}
+	}
+	return tmp;
 }
 
 void resize_subs(int uid) {
-    int uind = get_uindex_by_id(uid);
-    int u = count_subs(uid);
+	int uind = get_uindex_by_id(uid);
+	int u = count_subs(uid);
 	sort_subs(uid);
 	if (u >= (sv_cfg.users[uind].sub_size - 3)) {
 		int *tmp = realloc(sv_cfg.users[uind].topic_ids, (sv_cfg.users[uind].sub_size + 10) * sizeof(int));
@@ -1057,8 +1148,8 @@ void resize_subs(int uid) {
 }
 
 void sort_subs(int uid) {
-    int uind = get_uindex_by_id(uid);
-    int tmp;
+	int uind = get_uindex_by_id(uid);
+	int tmp;
 	for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
 		if (sv_cfg.users[uind].topic_ids[i] == -1) {
 			for (int j = sv_cfg.users[uind].sub_size - 1; j > i; j--) {
@@ -1074,41 +1165,41 @@ void sort_subs(int uid) {
 }
 
 int is_user_already_subbed(int uid, int tid) {
-    int uind = get_uindex_by_id(uid);
-    for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
-        if (tid == sv_cfg.users[uind].topic_ids[i]) {
-            return 1;
-        }
-    }
-    return 0;
+	int uind = get_uindex_by_id(uid);
+	for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
+		if (tid == sv_cfg.users[uind].topic_ids[i]) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 // Gets user file descriptors of whoever is subscribed to the topic
 // Return: array with user file descriptors
 // *num returns number of users
 int *get_ufd_subbed_to(const char *topic, int *num) {
-    (*num) = 0;
-    int size = 1;
-    int *tmp = malloc(sizeof(int) * size);
-    if (tmp != NULL) {
-        int topicid = sv_cfg.topics[get_tindex_by_topic_name(topic)].id;
-        for (int i = 0; i < sv_cfg.users_size; i++) {
-            if (sv_cfg.users[i].id != -1) {
-                for (int j = 0; j < sv_cfg.users[i].sub_size; j++) {
-                    if (sv_cfg.users[i].topic_ids[j] == topicid) {
-                        tmp[size - 1] = sv_cfg.users[i].user_fd;
-                        size++;
-                        int *tmp2 = realloc(tmp, sizeof(int) * size);
-                        if (tmp2 != NULL) {
-                            tmp = tmp2;
-                            (*num)++;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return tmp;
+	(*num) = 0;
+	int size = 1;
+	int *tmp = malloc(sizeof(int) * size);
+	if (tmp != NULL) {
+		int topicid = sv_cfg.topics[get_tindex_by_topic_name(topic)].id;
+		for (int i = 0; i < sv_cfg.users_size; i++) {
+			if (sv_cfg.users[i].id != -1) {
+				for (int j = 0; j < sv_cfg.users[i].sub_size; j++) {
+					if (sv_cfg.users[i].topic_ids[j] == topicid) {
+						tmp[size - 1] = sv_cfg.users[i].user_fd;
+						size++;
+						int *tmp2 = realloc(tmp, sizeof(int) * size);
+						if (tmp2 != NULL) {
+							tmp = tmp2;
+							(*num)++;
+						}
+					}
+				}
+			}
+		}
+	}
+	return tmp;
 }
 
 // ********************** SV_USER FUNCTIONS END
@@ -1159,13 +1250,15 @@ void add_msg(MESSAGE msg) {
 	}
 }
 
-void rem_msg(int id) {
+int rem_msg(int id) {
 	int ind = get_mindex_by_id(id);
 	if (ind != -1) {
 		sv_cfg.msgs[ind].id = -1;
 		sv_cfg.msgs[ind].msg.Duration = 0;
 		sv_cfg.n_msgs--;
+		return 1;
 	}
+	return 0;
 }
 
 // ********************** SV_MSG FUNCTIONS END
@@ -1180,43 +1273,43 @@ int get_next_t_index() {
 }
 
 void add_topic(const char *topic) {
-    resize_topics();
-    int t_ind = get_next_t_index();
-    if (t_ind != -1) {
-        sv_cfg.topics[t_ind].id = sv_cfg.next_tid;
-        strncpy(sv_cfg.topics[t_ind].topic, topic, MAX_TPCTTL);
-        sv_cfg.next_tid++;
-    }
+	resize_topics();
+	int t_ind = get_next_t_index();
+	if (t_ind != -1) {
+		sv_cfg.topics[t_ind].id = sv_cfg.next_tid;
+		strncpy(sv_cfg.topics[t_ind].topic, topic, MAX_TPCTTL);
+		sv_cfg.next_tid++;
+	}
 }
 
 void rem_topic(int id) {
-    int t_ind = get_mindex_by_id(id);
-    if (t_ind != -1) {
-        sv_cfg.topics[t_ind].id = -1;
-    }
+	int t_ind = get_tindex_by_id(id);
+	if (t_ind != -1) {
+		sv_cfg.topics[t_ind].id = -1;
+	}
 }
 
 int get_tindex_by_id(int id) {
-    for (int i = 0; i < sv_cfg.topic_size; i++) {
-        if (sv_cfg.topics[i].id == id) {
-            return i;
-        }
-    }
-    return -1;
+	for (int i = 0; i < sv_cfg.topic_size; i++) {
+		if (sv_cfg.topics[i].id == id) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 int get_tindex_by_topic_name(const char *t_name) {
-    for (int i = 0; i < sv_cfg.topic_size; i++) {
-        if (sv_cfg.topics[i].id != -1 && strcmp(t_name, sv_cfg.topics[i].topic) == 0) {
-            return i;
-        }
-    }
-    return -1;
+	for (int i = 0; i < sv_cfg.topic_size; i++) {
+		if (sv_cfg.topics[i].id != -1 && strcmp(t_name, sv_cfg.topics[i].topic) == 0) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 // Same as resize users but for topics
 void resize_topics() {
-    int u = count_topics();
+	int u = count_topics();
 	sort_topics();
 	if (u >= (sv_cfg.topic_size - 3)) {
 		SV_TOPIC *tmp = realloc(sv_cfg.topics, (sv_cfg.topic_size + 10) * sizeof(SV_TOPIC));

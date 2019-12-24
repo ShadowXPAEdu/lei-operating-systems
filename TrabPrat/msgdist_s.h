@@ -43,23 +43,23 @@ void *heartbeat();
 void f_CMD_CON(COMMAND r_cmd);                  // Done
 void f_CMD_ALIVE(COMMAND r_cmd);                // Done
 void f_CMD_DC(COMMAND r_cmd);                   // Done
-void f_CMD_NEWMSG(COMMAND r_cmd);
-void f_CMD_GETTOPICS(COMMAND r_cmd);
-void f_CMD_GETTITLES(COMMAND r_cmd);
-void f_CMD_GETMSG(COMMAND r_cmd);
-void f_CMD_SUB(COMMAND r_cmd);
-void f_CMD_UNSUB(COMMAND r_cmd);
-void f_CMD_default(COMMAND r_cmd);
+void f_CMD_NEWMSG(COMMAND r_cmd);               // Done
+void f_CMD_GETTOPICS(COMMAND r_cmd);            // --
+void f_CMD_GETTITLES(COMMAND r_cmd);            // --
+void f_CMD_GETMSG(COMMAND r_cmd);               // --
+void f_CMD_SUB(COMMAND r_cmd);                  // Done
+void f_CMD_UNSUB(COMMAND r_cmd);                // Done
+void f_CMD_default(COMMAND r_cmd);              // Done
 
 // Admin command functions
 void adm_cmd_help();                            // Done
 void adm_cmd_users();                           // Done
-void adm_cmd_topics();                          // Done, working?
-void adm_cmd_msg();                             // Done, working?
-void adm_cmd_prune();                           // --
+void adm_cmd_topics();                          // Done
+void adm_cmd_msg();                             // Done
+void adm_cmd_prune();                           // Done
 void adm_cmd_filter(int on);                    // Done
-void adm_cmd_topic(const char *ptr);            // --
-void adm_cmd_del(const char *ptr);              // --
+void adm_cmd_topic(const char *ptr);            // Done
+void adm_cmd_del(const char *ptr);              // Done
 void adm_cmd_kick(const char *ptr);             // Done
 int adm_cmd_verify(const char *ptr, int sv);    // Done
 void adm_cmd_cfg();                             // Done
@@ -125,13 +125,13 @@ void rem_user2(int ind);
 int get_uindex_by_id(int id);
 int get_uindex_by_FIFO(const char *FIFO);
 int get_uindex_by_username(const char *username);
+int get_uindex_by_fd(int fd);
 int get_next_u_index();
-
-int *get_ufd_subbed_to(const char *topic, int *num);    // Test this
+int *get_ufd_subbed_to(const char *topic, int *num);
 
 // Message functions
 void add_msg(MESSAGE msg);
-void rem_msg(int id);
+int rem_msg(int id);
 int get_mindex_by_message(MESSAGE msg);
 int get_mindex_by_id(int id);
 
@@ -150,13 +150,16 @@ int count_topics();
 //SV_USER *get_user_by_username(const char *username);
 //
 
-// Unimplemented
-void subscribe(const char *FIFO, int topic_id);
-void unsubscribe(const char *FIFO, int topic_id);
+// To test
 int count_subs(int uid);
 void resize_subs(int uid);
 void sort_subs(int uid);
 int is_user_already_subbed(int uid, int tid);
 int get_next_st_index(int uid);
+
+// Not fully implemented
+void subscribe(const char *FIFO, int topic_id);
+void unsubscribe(const char *FIFO, int topic_id);
+// Unimplemented
 
 #endif // MSGDIST_S
