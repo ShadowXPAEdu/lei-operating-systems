@@ -315,12 +315,25 @@ void *handle_connection(void *p_command) {
 			break;
 		case CMD_GETTOPICS:
 			// User asked for topics
+			pthread_mutex_lock(&mtx_topic);
+			pthread_mutex_lock(&mtx_user);
+			f_CMD_GETTOPICS(r_cmd);
+			pthread_mutex_unlock(&mtx_user);
+			pthread_mutex_unlock(&mtx_topic);
 			break;
 		case CMD_GETTITLES:
 			// User asked for messages
+			pthread_mutex_lock(&mtx_msg);
+			pthread_mutex_lock(&mtx_user);
+			f_CMD_GETTITLES(r_cmd);
+			pthread_mutex_unlock(&mtx_user);
+			pthread_mutex_unlock(&mtx_msg);
 			break;
 		case CMD_GETMSG:
 			// User asked for specific message
+			pthread_mutex_lock(&mtx_msg);
+			f_CMD_GETMSG(r_cmd);
+			pthread_mutex_unlock(&mtx_msg);
 			break;
 		case CMD_SUB:
 			// User subscribed to a topic
@@ -469,15 +482,112 @@ void f_CMD_NEWMSG(COMMAND r_cmd) {
 }
 
 void f_CMD_GETTOPICS(COMMAND r_cmd) {
-
+    COMMAND s_cmd;
+    s_cmd.cmd = CMD_GETTOPICS;
+    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
+    int n_topics = count_topics();
+    s_cmd.Body.un_tt = n_topics;
+    int u_ind = get_uindex_by_FIFO(r_cmd.From);
+    if (u_ind != -1) {
+        // Send number of topics
+        write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+        // Open new fifo communication so there is no other interference
+        char tt_fifo[MAX_FIFO];
+        snprintf(tt_fifo, MAX_FIFO+3, "%s_tt", sv_cfg.users[u_ind].user.FIFO);
+        int tt_fd = open(tt_fifo, O_WRONLY);
+        COMMAND s_cmd2;
+        s_cmd2.cmd = CMD_GETTOPICS;
+        snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
+        // Send each topic at a time
+        for (int i = 0; i < sv_cfg.topic_size; i++) {
+            // Duration = ID of topic
+            if (sv_cfg.topics[i].id != -1) {
+                s_cmd2.Body.un_msg.Duration = sv_cfg.topics[i].id;
+                snprintf(s_cmd2.Body.un_msg.Topic, MAX_TPCTTL, "%s", sv_cfg.topics[i].topic);
+                write(tt_fd, &s_cmd2, sizeof(COMMAND));
+            }
+        }
+        close(tt_fd);
+    } else {
+		s_cmd.cmd = CMD_ERR;
+        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+        int tmp_fd = open(r_cmd.From, O_WRONLY);
+        write(tmp_fd, &s_cmd, sizeof(COMMAND));
+        close(tmp_fd);
+    }
 }
 
 void f_CMD_GETTITLES(COMMAND r_cmd) {
-
+    COMMAND s_cmd;
+    s_cmd.cmd = CMD_GETTITLES;
+    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
+    int n_titles = count_msg();
+    s_cmd.Body.un_tt = n_titles;
+    int u_ind = get_uindex_by_FIFO(r_cmd.From);
+    if (u_ind != -1) {
+        // Send number of titles
+        write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+        // Open new fifo communication so there is no other interference
+        char tt_fifo[MAX_FIFO];
+        snprintf(tt_fifo, MAX_FIFO+3, "%s_tt", sv_cfg.users[u_ind].user.FIFO);
+        int tt_fd = open(tt_fifo, O_WRONLY);
+        COMMAND s_cmd2;
+        s_cmd2.cmd = CMD_GETTOPICS;
+        snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
+        // Send each topic at a time
+        for (int i = 0; i < sv_cfg.maxmsg; i++) {
+            // Duration = ID of topic
+            if (sv_cfg.msgs[i].id != -1) {
+                s_cmd2.Body.un_msg.Duration = sv_cfg.msgs[i].id;
+                snprintf(s_cmd2.Body.un_msg.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[i].msg.Title);
+                snprintf(s_cmd2.Body.un_msg.Author, MAX_USER, "%s", sv_cfg.msgs[i].msg.Author);
+                write(tt_fd, &s_cmd2, sizeof(COMMAND));
+            }
+        }
+        close(tt_fd);
+    } else {
+		s_cmd.cmd = CMD_ERR;
+        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+        int tmp_fd = open(r_cmd.From, O_WRONLY);
+        write(tmp_fd, &s_cmd, sizeof(COMMAND));
+        close(tmp_fd);
+    }
+    // Send each title at a time
 }
 
 void f_CMD_GETMSG(COMMAND r_cmd) {
-
+    COMMAND s_cmd;
+	strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
+    int m_ind = get_mindex_by_id(r_cmd.Body.un_tt);
+    pthread_mutex_lock(&mtx_user);
+    int u_ind = get_uindex_by_FIFO(r_cmd.From);
+    pthread_mutex_unlock(&mtx_user);
+    if (m_ind != -1) {
+        // If message exists sends message to client
+        MESSAGE m;
+        snprintf(m.Author, MAX_USER, "%s", sv_cfg.msgs[m_ind].msg.Author);
+        snprintf(m.Body, MAX_BODY, "%s", sv_cfg.msgs[m_ind].msg.Body);
+        snprintf(m.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Title);
+        snprintf(m.Topic, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Topic);
+        m.Duration = 0;
+        s_cmd.cmd = CMD_GETMSG;
+        s_cmd.Body.un_msg = m;
+        if (u_ind != -1) {
+            pthread_mutex_lock(&mtx_user);
+            write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+            pthread_mutex_unlock(&mtx_user);
+        }
+    } else {
+        // Send CMD_ERR
+        // No message with specified ID
+        s_cmd.cmd = CMD_ERR;
+        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "No message exists with specified ID.");
+        if (u_ind != -1) {
+            pthread_mutex_lock(&mtx_user);
+            write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+            pthread_mutex_unlock(&mtx_user);
+        }
+    }
 }
 
 void f_CMD_SUB(COMMAND r_cmd) {
@@ -555,7 +665,7 @@ void *heartbeat() {
 		for (int i = 0; i < sv_cfg.users_size; i++) {
 			// Sets ID -1 of users with alive 0
 			if (sv_cfg.users[i].id != -1 && sv_cfg.users[i].alive == 0) {
-				rem_user2(sv_cfg.users[i].id);
+				rem_user2(i);
 //                sv_cfg.users[i].id = -1;
 //                close(sv_cfg.users[i].user_fd);
 			}
@@ -730,7 +840,7 @@ void adm_cmd_msg() {
 }
 
 void adm_cmd_prune() {
-	int i, j, k, t;
+	int i, j, k, t, n = 0, s = 0;
 	pthread_mutex_lock(&mtx_topic);
 	// foreach topic
 	for (i = 0; i < sv_cfg.topic_size; i++) {
@@ -755,16 +865,18 @@ void adm_cmd_prune() {
                 for (k = 0; k < num; k++) {
                     u_ind = get_uindex_by_fd(ufd[k]);
                     unsubscribe(sv_cfg.users[k].user.FIFO, sv_cfg.topics[i].id);
+                    s++;
                 }
                 pthread_mutex_unlock(&mtx_user);
                 rem_topic(sv_cfg.topics[i].id);
+                n++;
             }
             pthread_mutex_unlock(&mtx_msg);
 		}
 	}
 	pthread_mutex_unlock(&mtx_topic);
-	// Lock topics and messages to check if topics exist in messages
-	// Lock users to cancel subscriptions
+    printf("[Server] The prune command deleted %d topics.\n", n);
+    printf("[Server] The prune command canceled %d subscriptions.\n", s);
 }
 
 void adm_cmd_topic(const char *ptr) {
@@ -1064,19 +1176,38 @@ int get_uindex_by_fd(int fd) {
 void subscribe(const char *FIFO, int topic_id) {
 	int tind = get_tindex_by_id(topic_id);
 	int uind = get_uindex_by_FIFO(FIFO);
+	COMMAND s_cmd;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
 	if (uind != -1) {
-		if (is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id) != -1) {
-			// Send CMD_ERR
-			// Already subscribed
-		} else {
-			// Add topic to subbed list
-			resize_subs(sv_cfg.users[uind].id);
-			int nstid = get_next_st_index(sv_cfg.users[uind].id);
-			sv_cfg.users[uind].topic_ids[nstid] = topic_id;
-		}
+        if (tind != -1) {
+            if (is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id) != -1) {
+                // Send CMD_ERR
+                // Already subscribed
+                s_cmd.cmd = CMD_ERR;
+                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User is already subscribed to this topic.");
+                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+            } else {
+                // Add topic to subbed list
+                resize_subs(sv_cfg.users[uind].id);
+                int nstid = get_next_st_index(sv_cfg.users[uind].id);
+                sv_cfg.users[uind].topic_ids[nstid] = topic_id;
+                s_cmd.cmd = CMD_ERR;
+                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "You have subscribed to topic ID: %d.", topic_id);
+                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+            }
+        } else {
+            s_cmd.cmd = CMD_ERR;
+            snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
+            write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+        }
 	} else {
 		// Send CMD_ERR
 		// User not connected
+		s_cmd.cmd = CMD_ERR;
+        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+        int tmp_fd = open(FIFO, O_WRONLY);
+        write(tmp_fd, &s_cmd, sizeof(COMMAND));
+        close(tmp_fd);
 	}
 }
 
@@ -1084,18 +1215,37 @@ void unsubscribe(const char *FIFO, int topic_id) {
 	int tind = get_tindex_by_id(topic_id);
 	int uind = get_uindex_by_FIFO(FIFO);
 	int tu_ind;
+	COMMAND s_cmd;
+    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
 	if (uind != -1) {
-		if ((tu_ind = is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id)) != -1) {
-			// Is subscribed, then unsubscribe
-			sv_cfg.users[uind].topic_ids[tu_ind] = -1;
-			resize_subs(sv_cfg.users[uind].id);
-		} else {
-			// Send CMD_ERR
-			// User not subscribed to this topic
-		}
+        if (tind != -1) {
+            if ((tu_ind = is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id)) != -1) {
+                // Is subscribed, then unsubscribe
+                sv_cfg.users[uind].topic_ids[tu_ind] = -1;
+                resize_subs(sv_cfg.users[uind].id);
+                s_cmd.cmd = CMD_ERR;
+                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "You have unsubscribed from topic ID: %d.", topic_id);
+                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+            } else {
+                // Send CMD_ERR
+                // User not subscribed to this topic
+                s_cmd.cmd = CMD_ERR;
+                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not subscribed to this topic.");
+                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+            }
+        } else {
+            s_cmd.cmd = CMD_ERR;
+            snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
+            write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+        }
 	} else {
 		// Send CMD_ERR
 		// User not connected
+		s_cmd.cmd = CMD_ERR;
+        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+        int tmp_fd = open(FIFO, O_WRONLY);
+        write(tmp_fd, &s_cmd, sizeof(COMMAND));
+        close(tmp_fd);
 	}
 }
 
@@ -1259,6 +1409,16 @@ int rem_msg(int id) {
 		return 1;
 	}
 	return 0;
+}
+
+int count_msg() {
+	int tmp = 0;
+	for (int i = 0; i < sv_cfg.maxmsg; i++) {
+		if (sv_cfg.msgs[i].id != -1) {
+			tmp++;
+		}
+	}
+	return tmp;
 }
 
 // ********************** SV_MSG FUNCTIONS END

@@ -46,7 +46,7 @@ void f_CMD_DC(COMMAND r_cmd);                   // Done
 void f_CMD_NEWMSG(COMMAND r_cmd);               // Done
 void f_CMD_GETTOPICS(COMMAND r_cmd);            // --
 void f_CMD_GETTITLES(COMMAND r_cmd);            // --
-void f_CMD_GETMSG(COMMAND r_cmd);               // --
+void f_CMD_GETMSG(COMMAND r_cmd);               // Done
 void f_CMD_SUB(COMMAND r_cmd);                  // Done
 void f_CMD_UNSUB(COMMAND r_cmd);                // Done
 void f_CMD_default(COMMAND r_cmd);              // Done
@@ -134,6 +134,7 @@ void add_msg(MESSAGE msg);
 int rem_msg(int id);
 int get_mindex_by_message(MESSAGE msg);
 int get_mindex_by_id(int id);
+int count_msg();
 
 // Topic functions
 void add_topic(const char *topic);

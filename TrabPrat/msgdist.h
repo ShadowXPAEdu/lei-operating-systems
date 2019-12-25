@@ -11,6 +11,10 @@
 #include <pthread.h>
 #include <signal.h>
 
+// True or false
+#define TRUE 1
+#define FALSE 0
+
 // Disconnect command
 #define CMD_DC 100
 // Server disconnect command
@@ -50,7 +54,7 @@
 #define MAX_BODY 1000
 #define MAX_TPCTTL 50
 #define MAX_USER 21
-#define MAX_FIFO 11
+#define MAX_FIFO 21
 
 typedef struct {
     char Username[MAX_USER];                    // Username

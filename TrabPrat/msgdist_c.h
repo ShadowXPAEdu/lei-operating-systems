@@ -3,6 +3,10 @@
 
 #include <ncurses.h>
 
+// Window Numbers
+#define WIN_HUD 0
+#define WIN_SVMSG 1
+#define WIN_MAIN 2
 // Number of windows
 #define NUM_WIN 3
 // Window header height
@@ -21,6 +25,21 @@ int shutdown_init = 0;
 int sv_shutdown = 0;
 int init_win = 0;
 int sv_kick = 0;
+
+// For GETTITLES and GETTOPICS
+int getting_titles = 0;
+int getting_topics = 0;
+int tt_index;
+
+typedef struct {
+    int ID;
+    char Name[MAX_TPCTTL];
+} TT;
+
+TT *tito;
+
+pthread_mutex_t mtx_tt = PTHREAD_MUTEX_INITIALIZER;
+// --
 
 void init_config();
 void set_signal();
@@ -41,6 +60,9 @@ void *handle_connection(void* p_cmd);
 void f_CMD_HEARTBEAT(COMMAND r_cmd);
 void f_CMD_SDC(COMMAND r_cmd);
 void f_CMD_FDC(COMMAND r_cmd);
+void f_CMD_GETMSG(COMMAND r_cmd);
+void f_CMD_GETTITLES(COMMAND r_cmd);
+void f_CMD_GETTOPICS(COMMAND r_cmd);
 void f_CMD_SUB(COMMAND r_cmd);
 void f_CMD_ERR(COMMAND r_cmd);
 
@@ -53,8 +75,10 @@ typedef struct {
 typedef struct {
     int sv_fifo_fd;
     int cl_fifo_fd;
+    int cl_fifo_tt_fd;
     int cl_unr_msg;
     char cl_fifo[MAX_FIFO];
+    char cl_fifo_tt[MAX_FIFO];
     char cl_username[MAX_USER];
 
     CL_WIN win[NUM_WIN];
