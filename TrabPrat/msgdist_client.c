@@ -328,7 +328,7 @@ void set_signal() {
 	signal(SIGINT, received_signal);
 	signal(SIGPIPE, received_signal);
 	signal(SIGALRM, received_signal);
-	signal(SIGUSR1, received_sigusr1);
+	signal(SIGUSR1, SIG_IGN);
 	signal(SIGUSR2, SIG_IGN);
 	signal(SIGSTOP, received_signal);
 	signal(SIGTSTP, received_signal);
@@ -338,10 +338,6 @@ void set_signal() {
 
 void received_signal(int i) {
 	cl_exit(-2);
-}
-
-void received_sigusr1(int i) {
-	// do nothing
 }
 
 void init_client() {

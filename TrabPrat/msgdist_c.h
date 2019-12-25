@@ -27,17 +27,6 @@ int init_win = 0;
 int sv_kick = 0;
 
 // For GETTITLES and GETTOPICS
-int getting_titles = 0;
-int getting_topics = 0;
-int tt_index;
-
-typedef struct {
-    int ID;
-    char Name[MAX_TPCTTL];
-} TT;
-
-TT *tito;
-
 pthread_mutex_t mtx_tt = PTHREAD_MUTEX_INITIALIZER;
 // --
 

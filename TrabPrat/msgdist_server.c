@@ -2,11 +2,13 @@
 #include "msgdist_s.h"
 
 int main(int argc, char *argv[], char **envp) {
+    // Check if has reset fifo argument
 	if (argc == 2)
 		if (strcmp(argv[1], "-rst") == 0)
 			unlink(sv_fifo);
+    // Check if server is already running
 	if (IsServerRunning(sv_fifo) != 0) {
-		printerr("Looks like the server is already running...\nClosing instance...\n", PERR_ERROR, 0);
+		printerr("Looks like the server is already running...\nClosing instance...\n", PERR_ERROR, FALSE);
 		sv_exit(-3);
 	} else {
 		pthread_t tds[THREADS];
@@ -18,33 +20,34 @@ int main(int argc, char *argv[], char **envp) {
 		// Open 'verificador'
 		init_verificador();
 
-		printerr("Opening server.", PERR_NORM, 0);
+		printerr("Opening server.", PERR_NORM, FALSE);
 
 		// Create threads
 		// Read cmd from named pipe
 		if (pthread_create(&tds[0], NULL, cmd_reader, NULL) != 0) {
-			printerr("Could not create thread to read commands from users.", PERR_ERROR, 0);
+			printerr("Could not create thread to read commands from users.", PERR_ERROR, FALSE);
 			sv_exit(-3);
 		}
 		// Checks message durations
 		if (pthread_create(&tds[1], NULL, msg_duration, NULL) != 0) {
-			printerr("Could not create thread to check message durations.", PERR_ERROR, 0);
+			printerr("Could not create thread to check message durations.", PERR_ERROR, FALSE);
 			sv_exit(1);
 		}
 		// Sends heartbeat to users
 		if (pthread_create(&tds[2], NULL, heartbeat, NULL) != 0) {
-			printerr("Could not create thread to send heartbeat messages to users.", PERR_ERROR, 0);
+			printerr("Could not create thread to send heartbeat messages to users.", PERR_ERROR, FALSE);
 			sv_exit(1);
 		}
 
 		// Read admin cmds
 		pthread_mutex_lock(&mtx_wait_for_init_td);
-		printerr("Accepting admin commands.", PERR_NORM, 0);
+		printerr("Accepting admin commands.", PERR_NORM, FALSE);
 		printf("Type 'help' for a list of commands.\n");
 		pthread_mutex_unlock(&mtx_wait_for_init_td);
 		// Admin "menu"
 		while (adm_cmd_reader() == 0);
 
+		// Wait for all threads to finish
 		for (int i = 0; i < THREADS; i++) {
 			pthread_join(tds[i], NULL);
 		}
@@ -84,7 +87,7 @@ void init_config() {
 	// Allocate memory for messages
 	sv_cfg.msgs = malloc(sv_cfg.maxmsg * sizeof(SV_MSG));
 	if (sv_cfg.msgs == NULL) {
-		printerr("Couldn't allocate memory for Messages.", PERR_ERROR, 0);
+		printerr("Couldn't allocate memory for Messages.", PERR_ERROR, FALSE);
 		sv_exit(-3);
 	}
 	// ID = -1 to tell the server that the [i]th index is not being used
@@ -95,7 +98,7 @@ void init_config() {
 	sv_cfg.topic_size = INIT_MALLOC_SIZE;
 	sv_cfg.topics = malloc(sv_cfg.topic_size * sizeof(SV_TOPIC));
 	if (sv_cfg.topics == NULL) {
-		printerr("Couldn't allocate memory for Topics.", PERR_ERROR, 0);
+		printerr("Couldn't allocate memory for Topics.", PERR_ERROR, FALSE);
 		free(sv_cfg.msgs);
 		sv_exit(-3);
 	}
@@ -106,7 +109,7 @@ void init_config() {
 	sv_cfg.users_size = INIT_MALLOC_SIZE;
 	sv_cfg.users = malloc(sv_cfg.users_size * sizeof(SV_USER));
 	if (sv_cfg.users == NULL) {
-		printerr("Couldn't allocate memory for Users.", PERR_ERROR, 0);
+		printerr("Couldn't allocate memory for Users.", PERR_ERROR, FALSE);
 		free(sv_cfg.msgs);
 		free(sv_cfg.topics);
 		sv_exit(-3);
@@ -119,25 +122,25 @@ void init_config() {
 }
 
 void init_verificador() {
-	printerr("Opening verificador.", PERR_NORM, 0);
+	printerr("Opening verificador.", PERR_NORM, FALSE);
 	int fd1[2];
 	int fd2[2];
 
-	printerr("Opening anonymous pipes.", PERR_NORM, 0);
+	printerr("Opening anonymous pipes.", PERR_NORM, FALSE);
 	if (pipe(fd1) < 0) {
-		printerr("Error opening anonymous pipe.", PERR_ERROR, 0);
+		printerr("Error opening anonymous pipe.", PERR_ERROR, FALSE);
 		sv_exit(-1);
 	} else {
 		if (pipe(fd2) < 0) {
-			printerr("Error opening anonymous pipe.", PERR_ERROR, 0);
+			printerr("Error opening anonymous pipe.", PERR_ERROR, FALSE);
 			sv_exit(-1);
 		} else {
 			// Anonymous pipes opened
-			printerr("Anonymous pipes opened.", PERR_NORM, 0);
-			printerr("Creating child process.", PERR_NORM, 0);
+			printerr("Anonymous pipes opened.", PERR_NORM, FALSE);
+			printerr("Creating child process.", PERR_NORM, FALSE);
 			sv_cfg.sv_verificador_pid = fork();
 			if (sv_cfg.sv_verificador_pid == -1) {
-				printerr("Error creating child process.", PERR_ERROR, 0);
+				printerr("Error creating child process.", PERR_ERROR, FALSE);
 				sv_exit(-1);
 			} else if (sv_cfg.sv_verificador_pid == 0) {
 				// Child
@@ -154,7 +157,7 @@ void init_verificador() {
 				execlp("./verificador", "./verificador", sv_cfg.wordsnot, NULL);
 			} else {
 				// Parent
-				printerr("Child process created.", PERR_NORM, 0);
+				printerr("Child process created.", PERR_NORM, FALSE);
 				close(fd1[0]);
 				close(fd2[1]);
 				sv_cfg.sv_verificador_pipes[0] = fd2[0];
@@ -250,15 +253,15 @@ void *cmd_reader() {
 	pthread_mutex_lock(&mtx_wait_for_init_td);
 	set_signal();
 	if (mkfifo(sv_fifo, 0666) == 0) {
-		printerr("Named pipe created.", PERR_INFO, 0);
+		printerr("Named pipe created.", PERR_INFO, FALSE);
 		sv_cfg.sv_fifo_fd = open(sv_fifo, O_RDWR);
 		if (sv_cfg.sv_fifo_fd == -1) {
-			printerr("Error opening named pipe.", PERR_ERROR, 0);
+			printerr("Error opening named pipe.", PERR_ERROR, FALSE);
 			pthread_mutex_unlock(&mtx_wait_for_init_td);
 			sv_exit(-1);
 		} else {
-			printerr("Named pipe opened.", PERR_INFO, 0);
-			printerr("Ready to receive commands from users.", PERR_INFO, 0);
+			printerr("Named pipe opened.", PERR_INFO, FALSE);
+			printerr("Ready to receive commands from users.", PERR_INFO, FALSE);
 			pthread_mutex_unlock(&mtx_wait_for_init_td);
 			COMMAND cmd;
 			pthread_t hc;
@@ -275,12 +278,12 @@ void *cmd_reader() {
 				}
 			}
 			close(sv_cfg.sv_fifo_fd);
-			printerr("Named pipe closed.", PERR_INFO, 0);
+			printerr("Named pipe closed.", PERR_INFO, FALSE);
 			unlink(sv_fifo);
-			printerr("Named pipe deleted.", PERR_INFO, 0);
+			printerr("Named pipe deleted.", PERR_INFO, FALSE);
 		}
 	} else {
-		printerr("An error occurred trying to open named pipe!\nClosing...", PERR_ERROR, 0);
+		printerr("An error occurred trying to open named pipe!\nClosing...", PERR_ERROR, FALSE);
 		pthread_mutex_unlock(&mtx_wait_for_init_td);
 		sv_exit(-1);
 	}
@@ -393,12 +396,11 @@ void f_CMD_CON(COMMAND r_cmd) {
 		int ind = get_uindex_by_id(uid);
 		char *_u = malloc((MAX_USER + strlen("User  has connected.")) * sizeof(char));
 		sprintf(_u, "User %s has connected.", r_cmd.Body.un_user.Username);
-		printerr(_u, PERR_INFO, 1);
+		printerr(_u, PERR_INFO, TRUE);
 		free(_u);
 		s_cmd.cmd = CMD_OK;
 		write(sv_cfg.users[ind].user_fd, &s_cmd, sizeof(COMMAND));
 		// Only alive after we reply OK to the connection
-		// so that heartbeat doesn't interfere
 		sv_cfg.users[ind].alive = 1;
 	} else {
 		s_cmd.cmd = CMD_ERR;
@@ -413,7 +415,7 @@ void f_CMD_DC(COMMAND r_cmd) {
 	int i = get_uindex_by_FIFO(r_cmd.From);
 	char buf[24 + MAX_USER];
 	snprintf(buf, 24 + MAX_USER, "User %s has disconnected.", sv_cfg.users[i].user.Username);
-	printerr(buf, PERR_INFO, 1);
+	printerr(buf, PERR_INFO, TRUE);
 	rem_user(r_cmd.From);
 }
 
@@ -534,9 +536,9 @@ void f_CMD_GETTITLES(COMMAND r_cmd) {
         COMMAND s_cmd2;
         s_cmd2.cmd = CMD_GETTOPICS;
         snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
-        // Send each topic at a time
+        // Send each title at a time
         for (int i = 0; i < sv_cfg.maxmsg; i++) {
-            // Duration = ID of topic
+            // Duration = ID of message
             if (sv_cfg.msgs[i].id != -1) {
                 s_cmd2.Body.un_msg.Duration = sv_cfg.msgs[i].id;
                 snprintf(s_cmd2.Body.un_msg.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[i].msg.Title);
@@ -552,7 +554,6 @@ void f_CMD_GETTITLES(COMMAND r_cmd) {
         write(tmp_fd, &s_cmd, sizeof(COMMAND));
         close(tmp_fd);
     }
-    // Send each title at a time
 }
 
 void f_CMD_GETMSG(COMMAND r_cmd) {
@@ -569,7 +570,7 @@ void f_CMD_GETMSG(COMMAND r_cmd) {
         snprintf(m.Body, MAX_BODY, "%s", sv_cfg.msgs[m_ind].msg.Body);
         snprintf(m.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Title);
         snprintf(m.Topic, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Topic);
-        m.Duration = 0;
+        m.Duration = sv_cfg.msgs[m_ind].id;
         s_cmd.cmd = CMD_GETMSG;
         s_cmd.Body.un_msg = m;
         if (u_ind != -1) {
@@ -609,19 +610,14 @@ void f_CMD_default(COMMAND r_cmd) {
 	pthread_mutex_unlock(&mtx_user);
 }
 
-void test_signal(int i) {
-	printf("Testing signal.\n");
-}
-
 void *msg_duration() {
 	pthread_mutex_lock(&mtx_wait_for_init_td);
 	set_signal();
-	signal(SIGUSR1, test_signal);
-	printerr("Ready to check messages duration.", PERR_INFO, 0);
+	printerr("Ready to check messages duration.", PERR_INFO, FALSE);
 	pthread_mutex_unlock(&mtx_wait_for_init_td);
 	while (msg_duration_bool == 0) {
 		//pthread_mutex_lock(&mtx_msg);
-		// maxmsg is fixed so no need for lock
+		// maxmsg is fixed
 		for (int i = 0; i < sv_cfg.maxmsg; i++) {
 			pthread_mutex_lock(&mtx_msg);
 			if (sv_cfg.msgs[i].id != -1) {
@@ -643,11 +639,10 @@ void *msg_duration() {
 void *heartbeat() {
 	pthread_mutex_lock(&mtx_wait_for_init_td);
 	set_signal();
-	signal(SIGUSR2, test_signal);
 	COMMAND cmd;
 	cmd.cmd = CMD_HEARTBEAT;
 	strncpy(cmd.From, sv_fifo, MAX_FIFO);
-	printerr("Ready to send heartbeat to users.", PERR_INFO, 0);
+	printerr("Ready to send heartbeat to users.", PERR_INFO, FALSE);
 	pthread_mutex_unlock(&mtx_wait_for_init_td);
 	while (heartbeat_bool == 0) {
 		pthread_mutex_lock(&mtx_user);
@@ -692,6 +687,7 @@ void shutdown() {
 	COMMAND cmd;
 	shutdown_init = 1;
 	printf("[Server] Server shutting down. Please wait.\n");
+	// Warn users of server shutdown
 	pthread_mutex_lock(&mtx_user);
 	for (int i = 0; i < sv_cfg.users_size; i++) {
 		if (sv_cfg.users[i].id != -1) {
@@ -703,15 +699,18 @@ void shutdown() {
 		}
 	}
 	pthread_mutex_unlock(&mtx_user);
+    // Set thread control variables
 	heartbeat_bool = 1;
 	msg_duration_bool = 1;
 	cmd_reader_bool = 1;
+	// Send CMD_IGN to own fifo so that we can leave the thread
 	cmd.cmd = CMD_IGN;
 	write(sv_cfg.sv_fifo_fd, &cmd, sizeof(COMMAND));
 //    close(sv_cfg.sv_fifo_fd);
-//    printerr("Named pipe closed.", PERR_INFO, 0);
+//    printerr("Named pipe closed.", PERR_INFO, FALSE);
 //    unlink(sv_fifo);
-//    printerr("Named pipe deleted.", PERR_INFO, 0);
+//    printerr("Named pipe deleted.", PERR_INFO, FALSE);
+    // Kill 'verificador'
 	kill(sv_cfg.sv_verificador_pid, SIGUSR2);
 }
 
@@ -882,11 +881,13 @@ void adm_cmd_prune() {
 void adm_cmd_topic(const char *ptr) {
 	char top[MAX_TPCTTL];
 	snprintf(top, MAX_TPCTTL, "%s", ptr);
+	// Check topic
 	pthread_mutex_lock(&mtx_topic);
 	int t_i = get_tindex_by_topic_name(top);
 	if (t_i == -1) {
-		printerr("Invalid topic name.", PERR_WARNING, 0);
+		printerr("Invalid topic name.", PERR_WARNING, FALSE);
 	} else {
+        // Writes messages with that topic on screen
 		pthread_mutex_lock(&mtx_msg);
 		printf("Messages with topic '%s':\n", top);
 		for (int i = 0; i < sv_cfg.maxmsg; i++) {
@@ -903,12 +904,13 @@ void adm_cmd_del(const char *ptr) {
 	int i = atoi(ptr);
 	pthread_mutex_lock(&mtx_msg);
 	if (i <= 0 || i >= sv_cfg.next_mid) {
-		printerr("Invalid ID.", PERR_WARNING, 0);
+		printerr("Invalid ID.", PERR_WARNING, FALSE);
 	} else {
+	    // Check if message was deleted
 		if (rem_msg(i)) {
-			printerr("Message deleted.", PERR_INFO, 0);
+			printerr("Message deleted.", PERR_INFO, FALSE);
 		} else {
-			printerr("Invalid ID.", PERR_WARNING, 0);
+			printerr("Invalid ID.", PERR_WARNING, FALSE);
 		}
 	}
 	pthread_mutex_unlock(&mtx_msg);
@@ -918,8 +920,10 @@ void adm_cmd_kick(const char *ptr) {
 	int i = atoi(ptr);
 	pthread_mutex_lock(&mtx_user);
 	if (i <= 0 || i >= sv_cfg.next_uid) {
-		printerr("Invalid ID.", PERR_WARNING, 0);
+		printerr("Invalid ID.", PERR_WARNING, FALSE);
 	} else {
+	    // Check user
+	    // if valid force disconnect user
 		int ind = get_uindex_by_id(i);
 		if (ind != -1) {
 			COMMAND cmd;
@@ -927,9 +931,9 @@ void adm_cmd_kick(const char *ptr) {
 			strncpy(cmd.From, sv_fifo, MAX_FIFO);
 			write(sv_cfg.users[ind].user_fd, &cmd, sizeof(COMMAND));
 			rem_user2(ind);
-			printerr("User kicked.", PERR_INFO, 0);
+			printerr("User kicked.", PERR_INFO, FALSE);
 		} else {
-			printerr("Invalid ID.", PERR_WARNING, 0);
+			printerr("Invalid ID.", PERR_WARNING, FALSE);
 		}
 	}
 	pthread_mutex_unlock(&mtx_user);
@@ -943,7 +947,7 @@ int adm_cmd_verify(const char *ptr, int sv) {
 		write(sv_cfg.sv_verificador_pipes[1], "\n", strlen("\n"));
 		write(sv_cfg.sv_verificador_pipes[1], "##MSGEND##\n", strlen("##MSGEND##\n"));
 		read(sv_cfg.sv_verificador_pipes[0], bwc, 20);
-		// Strtok because 'verificador' sends garbage after the number... for some reason...
+		// Strtok because 'verificador' sends garbage after the number... for some reason...???
 		bwc2 = strtok(bwc, "\n");
 		int bwci = atoi(bwc2);
 		if (sv == 1) {
@@ -960,6 +964,8 @@ int adm_cmd_verify(const char *ptr, int sv) {
 			return bwci;
 		}
 	} else if (sv_cfg.use_filter == 0 && sv == 1) {
+	    // Testing filter and 'verificador' before client-server connection
+	    // No need for this anymore. But it will stay here anyway
 		printf("Word filter is disabled. Please enable word filter with 'filter on'.\n");
 	}
 	return 0;
@@ -1000,41 +1006,6 @@ int count_users() {
 	return tmp;
 }
 
-// Gets the user with ID = $id
-//SV_USER *get_user_by_id(int id) {
-//	SV_USER *tmp_user = NULL;
-//	if (id <= 0 || id >= sv_cfg.next_uid)
-//		return tmp_user;
-//	for (int i = 0; i < sv_cfg.users_size; i++) {
-//		if (sv_cfg.users[i].id == id) {
-//			return &sv_cfg.users[i];
-//		}
-//	}
-//	return tmp_user;
-//}
-//
-//// Gets the user with FIFO = $FIFO
-//SV_USER *get_user_by_FIFO(const char *FIFO) {
-//	SV_USER *tmp_user = NULL;
-//	for (int i = 0; i < sv_cfg.users_size; i++) {
-//		if (strcmp(sv_cfg.users[i].user.FIFO, FIFO) == 0) {
-//			return &sv_cfg.users[i];
-//		}
-//	}
-//	return NULL;
-//}
-//
-//// Gets the user with Username = $username
-//SV_USER *get_user_by_username(const char *username) {
-//	SV_USER *tmp_user = NULL;
-//	for (int i = 0; i < sv_cfg.users_size; i++) {
-//		if (strcmp(sv_cfg.users[i].user.Username, username) == 0) {
-//			return &sv_cfg.users[i];
-//		}
-//	}
-//	return NULL;
-//}
-
 // Reallocates memory if size is bigger than (previously allocated space - 3) or if size is smaller than (previously allocated space - 14)
 // If count_users = 9 and previously allocated space = 10
 // Then 9 >= 10 - 3 == true
@@ -1046,7 +1017,7 @@ void resize_users() {
 	if (u >= (sv_cfg.users_size - 3)) {
 		SV_USER *tmp = realloc(sv_cfg.users, (sv_cfg.users_size + 10) * sizeof(SV_USER));
 		if (tmp == NULL) {
-			printerr("Getting low on memory for users.", PERR_WARNING, 1);
+			printerr("Getting low on memory for users.", PERR_WARNING, TRUE);
 		} else {
 			sv_cfg.users = tmp;
 			for (int i = sv_cfg.users_size; i < (sv_cfg.users_size + 10); i++) {
@@ -1060,7 +1031,7 @@ void resize_users() {
 	} else if ((sv_cfg.users_size != INIT_MALLOC_SIZE) && (u <= (sv_cfg.users_size - 14))) {
 		SV_USER *tmp = realloc(sv_cfg.users, (sv_cfg.users_size - 10) * sizeof(SV_USER));
 		if (tmp == NULL) {
-			printerr("Getting low on memory for users.", PERR_WARNING, 1);
+			printerr("Getting low on memory for users.", PERR_WARNING, TRUE);
 		} else {
 			sv_cfg.users = tmp;
 			sv_cfg.users_size -= 10;
@@ -1196,6 +1167,7 @@ void subscribe(const char *FIFO, int topic_id) {
                 write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
             }
         } else {
+            // Topic doesn't exist
             s_cmd.cmd = CMD_ERR;
             snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
             write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
@@ -1234,6 +1206,7 @@ void unsubscribe(const char *FIFO, int topic_id) {
                 write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
             }
         } else {
+            // Topic doesn't exist
             s_cmd.cmd = CMD_ERR;
             snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
             write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
@@ -1250,6 +1223,7 @@ void unsubscribe(const char *FIFO, int topic_id) {
 }
 
 int get_next_st_index(int uid) {
+    // Get next subbed topic index
 	int ind = get_uindex_by_id(uid);
 	for (int i = 0; i < sv_cfg.users[ind].sub_size; i++) {
 		if (sv_cfg.users[ind].topic_ids[i] == -1)
@@ -1259,6 +1233,7 @@ int get_next_st_index(int uid) {
 }
 
 int count_subs(int uid) {
+    // Count how many subscriptions the user has
 	int tmp = 0;
 	int ind = get_uindex_by_id(uid);
 	if (ind != -1) {
@@ -1272,13 +1247,14 @@ int count_subs(int uid) {
 }
 
 void resize_subs(int uid) {
+    // Resize user subscriptions array
 	int uind = get_uindex_by_id(uid);
 	int u = count_subs(uid);
 	sort_subs(uid);
 	if (u >= (sv_cfg.users[uind].sub_size - 3)) {
 		int *tmp = realloc(sv_cfg.users[uind].topic_ids, (sv_cfg.users[uind].sub_size + 10) * sizeof(int));
 		if (tmp == NULL) {
-			printerr("Getting low on memory for subscribed topics.", PERR_WARNING, 1);
+			printerr("Getting low on memory for subscribed topics.", PERR_WARNING, TRUE);
 		} else {
 			sv_cfg.users[uind].topic_ids = tmp;
 			for (int i = sv_cfg.users[uind].sub_size; i < (sv_cfg.users[uind].sub_size + 10); i++) {
@@ -1289,7 +1265,7 @@ void resize_subs(int uid) {
 	} else if ((sv_cfg.users[uind].sub_size != INIT_MALLOC_SIZE) && (u <= (sv_cfg.users[uind].sub_size - 14))) {
 		int *tmp = realloc(sv_cfg.users[uind].topic_ids, (sv_cfg.users[uind].sub_size - 10) * sizeof(int));
 		if (tmp == NULL) {
-			printerr("Getting low on memory for subscribed topics.", PERR_WARNING, 1);
+			printerr("Getting low on memory for subscribed topics.", PERR_WARNING, TRUE);
 		} else {
 			sv_cfg.users[uind].topic_ids = tmp;
 			sv_cfg.users[uind].sub_size -= 10;
@@ -1298,6 +1274,7 @@ void resize_subs(int uid) {
 }
 
 void sort_subs(int uid) {
+    // Sort subscriptions
 	int uind = get_uindex_by_id(uid);
 	int tmp;
 	for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
@@ -1315,6 +1292,7 @@ void sort_subs(int uid) {
 }
 
 int is_user_already_subbed(int uid, int tid) {
+    // Is user already subscribed to certain topic ID?
 	int uind = get_uindex_by_id(uid);
 	for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
 		if (tid == sv_cfg.users[uind].topic_ids[i]) {
@@ -1474,7 +1452,7 @@ void resize_topics() {
 	if (u >= (sv_cfg.topic_size - 3)) {
 		SV_TOPIC *tmp = realloc(sv_cfg.topics, (sv_cfg.topic_size + 10) * sizeof(SV_TOPIC));
 		if (tmp == NULL) {
-			printerr("Getting low on memory for topics.", PERR_WARNING, 1);
+			printerr("Getting low on memory for topics.", PERR_WARNING, TRUE);
 		} else {
 			sv_cfg.topics = tmp;
 			for (int i = sv_cfg.topic_size; i < (sv_cfg.topic_size + 10); i++) {
@@ -1485,7 +1463,7 @@ void resize_topics() {
 	} else if ((sv_cfg.topic_size != INIT_MALLOC_SIZE) && (u <= (sv_cfg.topic_size - 14))) {
 		SV_TOPIC *tmp = realloc(sv_cfg.topics, (sv_cfg.topic_size - 10) * sizeof(SV_TOPIC));
 		if (tmp == NULL) {
-			printerr("Getting low on memory for topics.", PERR_WARNING, 1);
+			printerr("Getting low on memory for topics.", PERR_WARNING, TRUE);
 		} else {
 			sv_cfg.topics = tmp;
 			sv_cfg.topic_size -= 10;
