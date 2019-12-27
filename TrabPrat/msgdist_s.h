@@ -62,6 +62,8 @@ void adm_cmd_del(const char *ptr);              // Function to handle an adminis
 void adm_cmd_kick(const char *ptr);             // Function to handle an administrator command 'kick' (kicks a user with a certain ID)
 int adm_cmd_verify(const char *ptr, int sv);    // Function to handle an administrator command 'verify' (verifies weather or not a message passes the filter or not)
 void adm_cmd_cfg();                             // Function to handle an administrator command 'cfg' (shows the server configuration)
+void adm_cmd_view(const char *ptr);             // Function to handle an administrator command 'view' (shows message with a certain ID)
+void adm_cmd_subs(const char *ptr);             // Function to handle an administrator command 'subs' (shows topics subscribed by a user with a certain ID)
 
 // Types
 // Server message

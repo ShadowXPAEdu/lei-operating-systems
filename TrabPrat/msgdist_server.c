@@ -2,11 +2,11 @@
 #include "msgdist_s.h"
 
 int main(int argc, char *argv[], char **envp) {
-    // Check if has reset fifo argument
+	// Check if has reset fifo argument
 	if (argc == 2)
 		if (strcmp(argv[1], "-rst") == 0)
 			unlink(sv_fifo);
-    // Check if server is already running
+	// Check if server is already running
 	if (IsServerRunning(sv_fifo) != 0) {
 		printerr("Looks like the server is already running...\nClosing instance...\n", PERR_ERROR, FALSE);
 		sv_exit(-3);
@@ -192,6 +192,12 @@ int adm_cmd_reader() {
 			} else if (strcmp(adm_cmd, "msg") == 0) {
 				// list messages
 				adm_cmd_msg();
+			} else if (strcmp(adm_cmd, "view") == 0) {
+				// view help
+				printf("Incomplete command.\nTo use '%s', try '%s [message_id]'\n", adm_cmd, adm_cmd);
+			} else if (strcmp(adm_cmd, "subs") == 0) {
+				// subs help
+				printf("Incomplete command.\nTo use '%s', try '%s [user_id]'\n", adm_cmd, adm_cmd);
 			} else if (strcmp(adm_cmd, "topic") == 0) {
 				// topic help
 				printf("Incomplete command.\nTo use '%s', try '%s [topic_name]'\n", adm_cmd, adm_cmd);
@@ -237,6 +243,12 @@ int adm_cmd_reader() {
 			} else if (strcmp(adm_cmd, "verify") == 0) {
 				// verifies the message with 'verificador'
 				adm_cmd_verify(ptr, 1);
+			} else if (strcmp(adm_cmd, "view") == 0) {
+				// view message with message_id [ptr]
+				adm_cmd_view(ptr);
+			} else if (strcmp(adm_cmd, "subs") == 0) {
+				// view subscriptions from user with user_id [ptr]
+				adm_cmd_subs(ptr);
 			} else {
 				printf("Unknown command...\n");
 			}
@@ -298,75 +310,75 @@ void *handle_connection(void *p_command) {
 	if (cmd_reader_bool == 0) {
 		// Take care of cmd
 		switch (r_cmd.cmd) {
-		case CMD_CON:
-			// User connecting
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_CON(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			break;
-		case CMD_DC:
-			// User disconnecting
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_DC(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			break;
-		case CMD_NEWMSG:
-			// User sent new msg
-			pthread_mutex_lock(&mtx_msg);
-			f_CMD_NEWMSG(r_cmd);
-			pthread_mutex_unlock(&mtx_msg);
-			break;
-		case CMD_GETTOPICS:
-			// User asked for topics
-			pthread_mutex_lock(&mtx_topic);
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_GETTOPICS(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			pthread_mutex_unlock(&mtx_topic);
-			break;
-		case CMD_GETTITLES:
-			// User asked for messages
-			pthread_mutex_lock(&mtx_msg);
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_GETTITLES(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			pthread_mutex_unlock(&mtx_msg);
-			break;
-		case CMD_GETMSG:
-			// User asked for specific message
-			pthread_mutex_lock(&mtx_msg);
-			f_CMD_GETMSG(r_cmd);
-			pthread_mutex_unlock(&mtx_msg);
-			break;
-		case CMD_SUB:
-			// User subscribed to a topic
-			pthread_mutex_lock(&mtx_topic);
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_SUB(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			pthread_mutex_unlock(&mtx_topic);
-			break;
-		case CMD_UNSUB:
-			// User unsubscribed to a topic
-			pthread_mutex_lock(&mtx_topic);
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_UNSUB(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			pthread_mutex_unlock(&mtx_topic);
-			break;
-		case CMD_ALIVE:
-			// User is ALIVE
-			pthread_mutex_lock(&mtx_user);
-			f_CMD_ALIVE(r_cmd);
-			pthread_mutex_unlock(&mtx_user);
-			break;
-		case CMD_IGN:
-			// Ignore cmd
-			break;
-		default:
-			// Send Err cmd
-			f_CMD_default(r_cmd);
-			break;
+			case CMD_CON:
+				// User connecting
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_CON(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				break;
+			case CMD_DC:
+				// User disconnecting
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_DC(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				break;
+			case CMD_NEWMSG:
+				// User sent new msg
+				pthread_mutex_lock(&mtx_msg);
+				f_CMD_NEWMSG(r_cmd);
+				pthread_mutex_unlock(&mtx_msg);
+				break;
+			case CMD_GETTOPICS:
+				// User asked for topics
+				pthread_mutex_lock(&mtx_topic);
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_GETTOPICS(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				pthread_mutex_unlock(&mtx_topic);
+				break;
+			case CMD_GETTITLES:
+				// User asked for messages
+				pthread_mutex_lock(&mtx_msg);
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_GETTITLES(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				pthread_mutex_unlock(&mtx_msg);
+				break;
+			case CMD_GETMSG:
+				// User asked for specific message
+				pthread_mutex_lock(&mtx_msg);
+				f_CMD_GETMSG(r_cmd);
+				pthread_mutex_unlock(&mtx_msg);
+				break;
+			case CMD_SUB:
+				// User subscribed to a topic
+				pthread_mutex_lock(&mtx_topic);
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_SUB(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				pthread_mutex_unlock(&mtx_topic);
+				break;
+			case CMD_UNSUB:
+				// User unsubscribed to a topic
+				pthread_mutex_lock(&mtx_topic);
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_UNSUB(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				pthread_mutex_unlock(&mtx_topic);
+				break;
+			case CMD_ALIVE:
+				// User is ALIVE
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_ALIVE(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
+				break;
+			case CMD_IGN:
+				// Ignore cmd
+				break;
+			default:
+				// Send Err cmd
+				f_CMD_default(r_cmd);
+				break;
 		}
 	}
 	return NULL;
@@ -394,8 +406,8 @@ void f_CMD_CON(COMMAND r_cmd) {
 	uid = add_user(r_cmd.Body.un_user);
 	if (uid >= 0 && x != 100) {
 		int ind = get_uindex_by_id(uid);
-		char *_u = malloc((MAX_USER + strlen("User  has connected.")) * sizeof(char));
-		sprintf(_u, "User %s has connected.", r_cmd.Body.un_user.Username);
+		char *_u = malloc((MAX_USER + strlen("User '' has connected.")) * sizeof(char));
+		sprintf(_u, "User '%s' has connected.", r_cmd.Body.un_user.Username);
 		printerr(_u, PERR_INFO, TRUE);
 		free(_u);
 		s_cmd.cmd = CMD_OK;
@@ -413,8 +425,8 @@ void f_CMD_CON(COMMAND r_cmd) {
 
 void f_CMD_DC(COMMAND r_cmd) {
 	int i = get_uindex_by_FIFO(r_cmd.From);
-	char buf[24 + MAX_USER];
-	snprintf(buf, 24 + MAX_USER, "User %s has disconnected.", sv_cfg.users[i].user.Username);
+	char buf[26 + MAX_USER];
+	snprintf(buf, 26 + MAX_USER, "User '%s' has disconnected.", sv_cfg.users[i].user.Username);
 	printerr(buf, PERR_INFO, TRUE);
 	rem_user(r_cmd.From);
 }
@@ -440,20 +452,29 @@ void f_CMD_NEWMSG(COMMAND r_cmd) {
 			s_cmd.cmd = CMD_ERR;
 			strncpy(s_cmd.Body.un_topic, "Invalid message. Message was deleted from the server.", sizeof("Invalid message. Message was deleted from the server.") + 1);
 			pthread_mutex_lock(&mtx_user);
-			int i = get_uindex_by_FIFO(r_cmd.From);
-			write(sv_cfg.users[i].user_fd, &s_cmd, sizeof(COMMAND));
+			int ui = get_uindex_by_FIFO(r_cmd.From);
+			write(sv_cfg.users[ui].user_fd, &s_cmd, sizeof(COMMAND));
 			pthread_mutex_unlock(&mtx_user);
+			char buf[MAX_USER + 93];
+			snprintf(buf, MAX_USER + 93, "User '%s' tried adding a message to the server but had %d bad words and was rejected.", r_cmd.Body.un_msg.Author, i);
+			printerr(buf, PERR_INFO, TRUE);
 		} else {
 			int ind;
 			// Save message
 			if ((ind = get_mindex_by_message(r_cmd.Body.un_msg)) != -1) {
 				sv_cfg.msgs[ind].msg.Duration += r_cmd.Body.un_msg.Duration;
+				char buf[MAX_USER + 79];
+				snprintf(buf, MAX_USER + 79, "User '%s' extended a message's time on the server by adding %d seconds.", r_cmd.Body.un_msg.Author, r_cmd.Body.un_msg.Duration);
+				printerr(buf, PERR_INFO, TRUE);
 			} else {
 				// Check if topic exists
 				pthread_mutex_lock(&mtx_topic);
 				if (get_tindex_by_topic_name(r_cmd.Body.un_msg.Topic) == -1) {
 					// Topic doesn't exist add it to the list
 					add_topic(r_cmd.Body.un_msg.Topic);
+					char buf[MAX_TPCTTL + 62];
+					snprintf(buf, MAX_TPCTTL + 62, "Topic '%s' does not exist therefore it was added to the server.", r_cmd.Body.un_msg.Topic);
+					printerr(buf, PERR_INFO, TRUE);
 				} else {
 					// Topic exists check who needs to be warned
 					// Lock users to warn each user
@@ -464,131 +485,137 @@ void f_CMD_NEWMSG(COMMAND r_cmd) {
 					s_cmd.cmd = CMD_SUB;
 					strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
 					strncpy(s_cmd.Body.un_topic, r_cmd.Body.un_msg.Topic, MAX_TPCTTL);
-					for (int i = 0; i < num; i++) {
-						write(userfd[i], &s_cmd, sizeof(COMMAND));
+					for (int ui = 0; ui < num; ui++) {
+						write(userfd[ui], &s_cmd, sizeof(COMMAND));
 					}
 					pthread_mutex_unlock(&mtx_user);
 				}
 				pthread_mutex_unlock(&mtx_topic);
 				add_msg(r_cmd.Body.un_msg);
+				char buf[MAX_USER + 66];
+				snprintf(buf, MAX_USER + 66, "User '%s' added a message to the server with %d bad words.", r_cmd.Body.un_msg.Author, i);
+				printerr(buf, PERR_INFO, TRUE);
 			}
 		}
 	} else {
 		s_cmd.cmd = CMD_ERR;
-		strncpy(s_cmd.Body.un_topic, "Server capacity reached it's limit. Message not sent.", sizeof("Server capacity reached it's limit. Message not sent.") + 1);
+		strncpy(s_cmd.Body.un_topic, "Server capacity reached its limit. Message not sent.", 53);
 		pthread_mutex_lock(&mtx_user);
 		int i = get_uindex_by_FIFO(r_cmd.From);
 		write(sv_cfg.users[i].user_fd, &s_cmd, sizeof(COMMAND));
 		pthread_mutex_unlock(&mtx_user);
+		char buf[MAX_USER + 94];
+		snprintf(buf, MAX_USER + 94, "User '%s' tried adding a message to the server however server is full and rejected the message.", r_cmd.Body.un_msg.Author);
+		printerr(buf, PERR_INFO, TRUE);
 	}
 }
 
 void f_CMD_GETTOPICS(COMMAND r_cmd) {
-    COMMAND s_cmd;
-    s_cmd.cmd = CMD_GETTOPICS;
-    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
-    int n_topics = count_topics();
-    s_cmd.Body.un_tt = n_topics;
-    int u_ind = get_uindex_by_FIFO(r_cmd.From);
-    if (u_ind != -1) {
-        // Send number of topics
-        write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
-        // Open new fifo communication so there is no other interference
-        char tt_fifo[MAX_FIFO];
-        snprintf(tt_fifo, MAX_FIFO+3, "%s_tt", sv_cfg.users[u_ind].user.FIFO);
-        int tt_fd = open(tt_fifo, O_WRONLY);
-        COMMAND s_cmd2;
-        s_cmd2.cmd = CMD_GETTOPICS;
-        snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
-        // Send each topic at a time
-        for (int i = 0; i < sv_cfg.topic_size; i++) {
-            // Duration = ID of topic
-            if (sv_cfg.topics[i].id != -1) {
-                s_cmd2.Body.un_msg.Duration = sv_cfg.topics[i].id;
-                snprintf(s_cmd2.Body.un_msg.Topic, MAX_TPCTTL, "%s", sv_cfg.topics[i].topic);
-                write(tt_fd, &s_cmd2, sizeof(COMMAND));
-            }
-        }
-        close(tt_fd);
-    } else {
+	COMMAND s_cmd;
+	s_cmd.cmd = CMD_GETTOPICS;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
+	int n_topics = count_topics();
+	s_cmd.Body.un_tt = n_topics;
+	int u_ind = get_uindex_by_FIFO(r_cmd.From);
+	if (u_ind != -1) {
+		// Send number of topics
+		write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+		// Open new fifo communication so there is no other interference
+		char tt_fifo[MAX_FIFO];
+		snprintf(tt_fifo, MAX_FIFO + 3, "%s_tt", sv_cfg.users[u_ind].user.FIFO);
+		int tt_fd = open(tt_fifo, O_WRONLY);
+		COMMAND s_cmd2;
+		s_cmd2.cmd = CMD_GETTOPICS;
+		snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
+		// Send each topic at a time
+		for (int i = 0; i < sv_cfg.topic_size; i++) {
+			// Duration = ID of topic
+			if (sv_cfg.topics[i].id != -1) {
+				s_cmd2.Body.un_msg.Duration = sv_cfg.topics[i].id;
+				snprintf(s_cmd2.Body.un_msg.Topic, MAX_TPCTTL, "%s", sv_cfg.topics[i].topic);
+				write(tt_fd, &s_cmd2, sizeof(COMMAND));
+			}
+		}
+		close(tt_fd);
+	} else {
 		s_cmd.cmd = CMD_ERR;
-        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
-        int tmp_fd = open(r_cmd.From, O_WRONLY);
-        write(tmp_fd, &s_cmd, sizeof(COMMAND));
-        close(tmp_fd);
-    }
+		snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+		int tmp_fd = open(r_cmd.From, O_WRONLY);
+		write(tmp_fd, &s_cmd, sizeof(COMMAND));
+		close(tmp_fd);
+	}
 }
 
 void f_CMD_GETTITLES(COMMAND r_cmd) {
-    COMMAND s_cmd;
-    s_cmd.cmd = CMD_GETTITLES;
-    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
-    int n_titles = count_msg();
-    s_cmd.Body.un_tt = n_titles;
-    int u_ind = get_uindex_by_FIFO(r_cmd.From);
-    if (u_ind != -1) {
-        // Send number of titles
-        write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
-        // Open new fifo communication so there is no other interference
-        char tt_fifo[MAX_FIFO];
-        snprintf(tt_fifo, MAX_FIFO+3, "%s_tt", sv_cfg.users[u_ind].user.FIFO);
-        int tt_fd = open(tt_fifo, O_WRONLY);
-        COMMAND s_cmd2;
-        s_cmd2.cmd = CMD_GETTOPICS;
-        snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
-        // Send each title at a time
-        for (int i = 0; i < sv_cfg.maxmsg; i++) {
-            // Duration = ID of message
-            if (sv_cfg.msgs[i].id != -1) {
-                s_cmd2.Body.un_msg.Duration = sv_cfg.msgs[i].id;
-                snprintf(s_cmd2.Body.un_msg.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[i].msg.Title);
-                snprintf(s_cmd2.Body.un_msg.Author, MAX_USER, "%s", sv_cfg.msgs[i].msg.Author);
-                write(tt_fd, &s_cmd2, sizeof(COMMAND));
-            }
-        }
-        close(tt_fd);
-    } else {
+	COMMAND s_cmd;
+	s_cmd.cmd = CMD_GETTITLES;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
+	int n_titles = count_msg();
+	s_cmd.Body.un_tt = n_titles;
+	int u_ind = get_uindex_by_FIFO(r_cmd.From);
+	if (u_ind != -1) {
+		// Send number of titles
+		write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+		// Open new fifo communication so there is no other interference
+		char tt_fifo[MAX_FIFO];
+		snprintf(tt_fifo, MAX_FIFO + 3, "%s_tt", sv_cfg.users[u_ind].user.FIFO);
+		int tt_fd = open(tt_fifo, O_WRONLY);
+		COMMAND s_cmd2;
+		s_cmd2.cmd = CMD_GETTOPICS;
+		snprintf(s_cmd2.From, MAX_FIFO, "%s", sv_fifo);
+		// Send each title at a time
+		for (int i = 0; i < sv_cfg.maxmsg; i++) {
+			// Duration = ID of message
+			if (sv_cfg.msgs[i].id != -1) {
+				s_cmd2.Body.un_msg.Duration = sv_cfg.msgs[i].id;
+				snprintf(s_cmd2.Body.un_msg.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[i].msg.Title);
+				snprintf(s_cmd2.Body.un_msg.Author, MAX_USER, "%s", sv_cfg.msgs[i].msg.Author);
+				write(tt_fd, &s_cmd2, sizeof(COMMAND));
+			}
+		}
+		close(tt_fd);
+	} else {
 		s_cmd.cmd = CMD_ERR;
-        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
-        int tmp_fd = open(r_cmd.From, O_WRONLY);
-        write(tmp_fd, &s_cmd, sizeof(COMMAND));
-        close(tmp_fd);
-    }
+		snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+		int tmp_fd = open(r_cmd.From, O_WRONLY);
+		write(tmp_fd, &s_cmd, sizeof(COMMAND));
+		close(tmp_fd);
+	}
 }
 
 void f_CMD_GETMSG(COMMAND r_cmd) {
-    COMMAND s_cmd;
+	COMMAND s_cmd;
 	strncpy(s_cmd.From, sv_fifo, MAX_FIFO);
-    int m_ind = get_mindex_by_id(r_cmd.Body.un_tt);
-    pthread_mutex_lock(&mtx_user);
-    int u_ind = get_uindex_by_FIFO(r_cmd.From);
-    pthread_mutex_unlock(&mtx_user);
-    if (m_ind != -1) {
-        // If message exists sends message to client
-        MESSAGE m;
-        snprintf(m.Author, MAX_USER, "%s", sv_cfg.msgs[m_ind].msg.Author);
-        snprintf(m.Body, MAX_BODY, "%s", sv_cfg.msgs[m_ind].msg.Body);
-        snprintf(m.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Title);
-        snprintf(m.Topic, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Topic);
-        m.Duration = sv_cfg.msgs[m_ind].id;
-        s_cmd.cmd = CMD_GETMSG;
-        s_cmd.Body.un_msg = m;
-        if (u_ind != -1) {
-            pthread_mutex_lock(&mtx_user);
-            write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
-            pthread_mutex_unlock(&mtx_user);
-        }
-    } else {
-        // Send CMD_ERR
-        // No message with specified ID
-        s_cmd.cmd = CMD_ERR;
-        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "No message exists with specified ID.");
-        if (u_ind != -1) {
-            pthread_mutex_lock(&mtx_user);
-            write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
-            pthread_mutex_unlock(&mtx_user);
-        }
-    }
+	int m_ind = get_mindex_by_id(r_cmd.Body.un_tt);
+	pthread_mutex_lock(&mtx_user);
+	int u_ind = get_uindex_by_FIFO(r_cmd.From);
+	pthread_mutex_unlock(&mtx_user);
+	if (m_ind != -1) {
+		// If message exists sends message to client
+		MESSAGE m;
+		snprintf(m.Author, MAX_USER, "%s", sv_cfg.msgs[m_ind].msg.Author);
+		snprintf(m.Body, MAX_BODY, "%s", sv_cfg.msgs[m_ind].msg.Body);
+		snprintf(m.Title, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Title);
+		snprintf(m.Topic, MAX_TPCTTL, "%s", sv_cfg.msgs[m_ind].msg.Topic);
+		m.Duration = sv_cfg.msgs[m_ind].id;
+		s_cmd.cmd = CMD_GETMSG;
+		s_cmd.Body.un_msg = m;
+		if (u_ind != -1) {
+			pthread_mutex_lock(&mtx_user);
+			write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+			pthread_mutex_unlock(&mtx_user);
+		}
+	} else {
+		// Send CMD_ERR
+		// No message with specified ID
+		s_cmd.cmd = CMD_ERR;
+		snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "No message exists with specified ID.");
+		if (u_ind != -1) {
+			pthread_mutex_lock(&mtx_user);
+			write(sv_cfg.users[u_ind].user_fd, &s_cmd, sizeof(COMMAND));
+			pthread_mutex_unlock(&mtx_user);
+		}
+	}
 }
 
 void f_CMD_SUB(COMMAND r_cmd) {
@@ -624,9 +651,13 @@ void *msg_duration() {
 				// Get [i]th msg and decrements duration
 				sv_cfg.msgs[i].msg.Duration--;
 				// Check if [i]th msg duration is 0
-				if (sv_cfg.msgs[i].msg.Duration == 0)
+				if (sv_cfg.msgs[i].msg.Duration == 0) {
 					// If msg duration is 0 set msg id to -1
+					char buf[43];
+					snprintf(buf, 43, "Message with ID [%d] has expired.", sv_cfg.msgs[i].id);
+					printerr(buf, PERR_INFO, TRUE);
 					rem_msg(sv_cfg.msgs[i].id);
+				}
 			}
 			pthread_mutex_unlock(&mtx_msg);
 		}
@@ -699,7 +730,7 @@ void shutdown() {
 		}
 	}
 	pthread_mutex_unlock(&mtx_user);
-    // Set thread control variables
+	// Set thread control variables
 	heartbeat_bool = 1;
 	msg_duration_bool = 1;
 	cmd_reader_bool = 1;
@@ -710,27 +741,27 @@ void shutdown() {
 //    printerr("Named pipe closed.", PERR_INFO, FALSE);
 //    unlink(sv_fifo);
 //    printerr("Named pipe deleted.", PERR_INFO, FALSE);
-    // Kill 'verificador'
+	// Kill 'verificador'
 	kill(sv_cfg.sv_verificador_pid, SIGUSR2);
 }
 
 // str = string to show, val = PERR_????, adm = write "\nAdmin > " after
 void printerr(const char *str, int val, int adm) {
 	switch (val) {
-	case PERR_NORM:
-		fprintf(stderr, "[Server] ");
-		break;
-	case PERR_ERROR:
-		fprintf(stderr, "[ERROR] ");
-		break;
-	case PERR_WARNING:
-		fprintf(stderr, "[WARNING] ");
-		break;
-	case PERR_INFO:
-		fprintf(stderr, "[INFO] ");
-		break;
-	default:
-		break;
+		case PERR_NORM:
+			fprintf(stderr, "[Server] ");
+			break;
+		case PERR_ERROR:
+			fprintf(stderr, "[ERROR] ");
+			break;
+		case PERR_WARNING:
+			fprintf(stderr, "[WARNING] ");
+			break;
+		case PERR_INFO:
+			fprintf(stderr, "[INFO] ");
+			break;
+		default:
+			break;
 	}
 	fprintf(stderr, "%s\n", str);
 	if (adm) {
@@ -772,6 +803,8 @@ void adm_cmd_help() {
 	printf("\tprune - Deletes topics with no messages associated and cancel subscriptions to those topics.\n");
 	printf("\tverify [message] - Uses the 'verificador' program to verify the message for banned words.\n");
 	printf("\tcfg - Shows the server's configuration.\n");
+	printf("\tview [message_id] - View message with the message_id.\n");
+	printf("\tsubs [user_id] - View subscriptions from the user with the user_id.\n");
 	printf("\tshutdown - Shuts the server down.\n");
 	printf("\texit - Same as shutdown.\n");
 	printf("\thelp - Shows this.\n");
@@ -844,38 +877,38 @@ void adm_cmd_prune() {
 	// foreach topic
 	for (i = 0; i < sv_cfg.topic_size; i++) {
 		if (sv_cfg.topics[i].id != -1) {
-            t = 0;
-            // foreach message
-            pthread_mutex_lock(&mtx_msg);
+			t = 0;
+			// foreach message
+			pthread_mutex_lock(&mtx_msg);
 			for (j = 0; j < sv_cfg.maxmsg; j++) {
 				if (sv_cfg.msgs[j].id != -1 && strcmp(sv_cfg.topics[i].topic, sv_cfg.msgs[j].msg.Topic) == 0) {
 					t = 1;
 					break;
 				}
 			}
-            if (t == 0) {
-                // No messages with the same topic
-                // Delete topic and unsubscribe
-                pthread_mutex_lock(&mtx_user);
-                int num, u_ind;
-                // Get user file descriptors of who is subscribed to certain topic
-                int *ufd = get_ufd_subbed_to(sv_cfg.topics[i].topic, &num);
-                // foreach user subscribed
-                for (k = 0; k < num; k++) {
-                    u_ind = get_uindex_by_fd(ufd[k]);
-                    unsubscribe(sv_cfg.users[k].user.FIFO, sv_cfg.topics[i].id);
-                    s++;
-                }
-                pthread_mutex_unlock(&mtx_user);
-                rem_topic(sv_cfg.topics[i].id);
-                n++;
-            }
-            pthread_mutex_unlock(&mtx_msg);
+			if (t == 0) {
+				// No messages with the same topic
+				// Delete topic and unsubscribe
+				pthread_mutex_lock(&mtx_user);
+				int num, u_ind;
+				// Get user file descriptors of who is subscribed to certain topic
+				int *ufd = get_ufd_subbed_to(sv_cfg.topics[i].topic, &num);
+				// foreach user subscribed
+				for (k = 0; k < num; k++) {
+					u_ind = get_uindex_by_fd(ufd[k]);
+					unsubscribe(sv_cfg.users[k].user.FIFO, sv_cfg.topics[i].id);
+					s++;
+				}
+				pthread_mutex_unlock(&mtx_user);
+				rem_topic(sv_cfg.topics[i].id);
+				n++;
+			}
+			pthread_mutex_unlock(&mtx_msg);
 		}
 	}
 	pthread_mutex_unlock(&mtx_topic);
-    printf("[Server] The prune command deleted %d topics.\n", n);
-    printf("[Server] The prune command canceled %d subscriptions.\n", s);
+	printf("[Server] The prune command deleted %d topics.\n", n);
+	printf("[Server] The prune command canceled %d subscriptions.\n", s);
 }
 
 void adm_cmd_topic(const char *ptr) {
@@ -887,7 +920,7 @@ void adm_cmd_topic(const char *ptr) {
 	if (t_i == -1) {
 		printerr("Invalid topic name.", PERR_WARNING, FALSE);
 	} else {
-        // Writes messages with that topic on screen
+		// Writes messages with that topic on screen
 		pthread_mutex_lock(&mtx_msg);
 		printf("Messages with topic '%s':\n", top);
 		for (int i = 0; i < sv_cfg.maxmsg; i++) {
@@ -906,7 +939,7 @@ void adm_cmd_del(const char *ptr) {
 	if (i <= 0 || i >= sv_cfg.next_mid) {
 		printerr("Invalid ID.", PERR_WARNING, FALSE);
 	} else {
-	    // Check if message was deleted
+		// Check if message was deleted
 		if (rem_msg(i)) {
 			printerr("Message deleted.", PERR_INFO, FALSE);
 		} else {
@@ -922,8 +955,8 @@ void adm_cmd_kick(const char *ptr) {
 	if (i <= 0 || i >= sv_cfg.next_uid) {
 		printerr("Invalid ID.", PERR_WARNING, FALSE);
 	} else {
-	    // Check user
-	    // if valid force disconnect user
+		// Check user
+		// if valid force disconnect user
 		int ind = get_uindex_by_id(i);
 		if (ind != -1) {
 			COMMAND cmd;
@@ -964,8 +997,8 @@ int adm_cmd_verify(const char *ptr, int sv) {
 			return bwci;
 		}
 	} else if (sv_cfg.use_filter == 0 && sv == 1) {
-	    // Testing filter and 'verificador' before client-server connection
-	    // No need for this anymore. But it will stay here anyway
+		// Testing filter and 'verificador' before client-server connection
+		// No need for this anymore. But it will stay here anyway
 		printf("Word filter is disabled. Please enable word filter with 'filter on'.\n");
 	}
 	return 0;
@@ -986,6 +1019,40 @@ void adm_cmd_cfg() {
 	pthread_mutex_unlock(&mtx_msg);
 	printf("\tServer PID: %d\n", getpid());
 	printf("\t'Verificador' PID: %d\n", sv_cfg.sv_verificador_pid);
+}
+
+void adm_cmd_view(const char *ptr) {
+	int mid = atoi(ptr);
+	pthread_mutex_lock(&mtx_msg);
+	int mind = get_mindex_by_id(mid);
+	if (mind != -1) {
+		printf("\tID: %d\n\tTime left: %d\n\tAuthor: %s\n\tTopic: %s\n\tTitle: %s\n\tBody: %s\n",
+		       sv_cfg.msgs[mind].id, sv_cfg.msgs[mind].msg.Duration, sv_cfg.msgs[mind].msg.Author,
+		       sv_cfg.msgs[mind].msg.Topic, sv_cfg.msgs[mind].msg.Title, sv_cfg.msgs[mind].msg.Body);
+	} else {
+		printerr("Invalid ID.", PERR_WARNING, FALSE);
+	}
+	pthread_mutex_unlock(&mtx_msg);
+}
+
+void adm_cmd_subs(const char *ptr) {
+	int uid = atoi(ptr);
+	pthread_mutex_lock(&mtx_topic);
+	pthread_mutex_lock(&mtx_user);
+	int uind = get_uindex_by_id(uid);
+	if (uind != -1) {
+		int tind;
+		printf("\tUser is subscribed to %d topics.\n", count_subs(uid));
+		for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
+			tind = get_tindex_by_id(sv_cfg.users[uind].topic_ids[i]);
+			if (sv_cfg.topics[tind].id != -1)
+				printf("\tID: %d - '%s'\n", sv_cfg.topics[tind].id, sv_cfg.topics[tind].topic);
+		}
+	} else {
+		printerr("Invalid ID.", PERR_WARNING, FALSE);
+	}
+	pthread_mutex_unlock(&mtx_user);
+	pthread_mutex_unlock(&mtx_topic);
 }
 
 // ********************** ADMINISTRATOR COMMAND FUNCTIONS END
@@ -1150,36 +1217,36 @@ void subscribe(const char *FIFO, int topic_id) {
 	COMMAND s_cmd;
 	snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
 	if (uind != -1) {
-        if (tind != -1) {
-            if (is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id) != -1) {
-                // Send CMD_ERR
-                // Already subscribed
-                s_cmd.cmd = CMD_ERR;
-                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User is already subscribed to this topic.");
-                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
-            } else {
-                // Add topic to subbed list
-                resize_subs(sv_cfg.users[uind].id);
-                int nstid = get_next_st_index(sv_cfg.users[uind].id);
-                sv_cfg.users[uind].topic_ids[nstid] = topic_id;
-                s_cmd.cmd = CMD_ERR;
-                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "You have subscribed to topic ID: %d.", topic_id);
-                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
-            }
-        } else {
-            // Topic doesn't exist
-            s_cmd.cmd = CMD_ERR;
-            snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
-            write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
-        }
+		if (tind != -1) {
+			if (is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id) != -1) {
+				// Send CMD_ERR
+				// Already subscribed
+				s_cmd.cmd = CMD_ERR;
+				snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User is already subscribed to this topic.");
+				write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+			} else {
+				// Add topic to subbed list
+				resize_subs(sv_cfg.users[uind].id);
+				int nstid = get_next_st_index(sv_cfg.users[uind].id);
+				sv_cfg.users[uind].topic_ids[nstid] = topic_id;
+				s_cmd.cmd = CMD_ERR;
+				snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "You have subscribed to topic ID: %d.", topic_id);
+				write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+			}
+		} else {
+			// Topic doesn't exist
+			s_cmd.cmd = CMD_ERR;
+			snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
+			write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+		}
 	} else {
 		// Send CMD_ERR
 		// User not connected
 		s_cmd.cmd = CMD_ERR;
-        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
-        int tmp_fd = open(FIFO, O_WRONLY);
-        write(tmp_fd, &s_cmd, sizeof(COMMAND));
-        close(tmp_fd);
+		snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+		int tmp_fd = open(FIFO, O_WRONLY);
+		write(tmp_fd, &s_cmd, sizeof(COMMAND));
+		close(tmp_fd);
 	}
 }
 
@@ -1188,42 +1255,42 @@ void unsubscribe(const char *FIFO, int topic_id) {
 	int uind = get_uindex_by_FIFO(FIFO);
 	int tu_ind;
 	COMMAND s_cmd;
-    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
+	snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
 	if (uind != -1) {
-        if (tind != -1) {
-            if ((tu_ind = is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id)) != -1) {
-                // Is subscribed, then unsubscribe
-                sv_cfg.users[uind].topic_ids[tu_ind] = -1;
-                resize_subs(sv_cfg.users[uind].id);
-                s_cmd.cmd = CMD_ERR;
-                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "You have unsubscribed from topic ID: %d.", topic_id);
-                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
-            } else {
-                // Send CMD_ERR
-                // User not subscribed to this topic
-                s_cmd.cmd = CMD_ERR;
-                snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not subscribed to this topic.");
-                write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
-            }
-        } else {
-            // Topic doesn't exist
-            s_cmd.cmd = CMD_ERR;
-            snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
-            write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
-        }
+		if (tind != -1) {
+			if ((tu_ind = is_user_already_subbed(sv_cfg.users[uind].id, sv_cfg.topics[tind].id)) != -1) {
+				// Is subscribed, then unsubscribe
+				sv_cfg.users[uind].topic_ids[tu_ind] = -1;
+				resize_subs(sv_cfg.users[uind].id);
+				s_cmd.cmd = CMD_ERR;
+				snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "You have unsubscribed from topic ID: %d.", topic_id);
+				write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+			} else {
+				// Send CMD_ERR
+				// User not subscribed to this topic
+				s_cmd.cmd = CMD_ERR;
+				snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not subscribed to this topic.");
+				write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+			}
+		} else {
+			// Topic doesn't exist
+			s_cmd.cmd = CMD_ERR;
+			snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "Topic does not exist.");
+			write(sv_cfg.users[uind].user_fd, &s_cmd, sizeof(COMMAND));
+		}
 	} else {
 		// Send CMD_ERR
 		// User not connected
 		s_cmd.cmd = CMD_ERR;
-        snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
-        int tmp_fd = open(FIFO, O_WRONLY);
-        write(tmp_fd, &s_cmd, sizeof(COMMAND));
-        close(tmp_fd);
+		snprintf(s_cmd.Body.un_topic, MAX_TPCTTL, "User not connect or has timed out.");
+		int tmp_fd = open(FIFO, O_WRONLY);
+		write(tmp_fd, &s_cmd, sizeof(COMMAND));
+		close(tmp_fd);
 	}
 }
 
 int get_next_st_index(int uid) {
-    // Get next subbed topic index
+	// Get next subbed topic index
 	int ind = get_uindex_by_id(uid);
 	for (int i = 0; i < sv_cfg.users[ind].sub_size; i++) {
 		if (sv_cfg.users[ind].topic_ids[i] == -1)
@@ -1233,7 +1300,7 @@ int get_next_st_index(int uid) {
 }
 
 int count_subs(int uid) {
-    // Count how many subscriptions the user has
+	// Count how many subscriptions the user has
 	int tmp = 0;
 	int ind = get_uindex_by_id(uid);
 	if (ind != -1) {
@@ -1247,7 +1314,7 @@ int count_subs(int uid) {
 }
 
 void resize_subs(int uid) {
-    // Resize user subscriptions array
+	// Resize user subscriptions array
 	int uind = get_uindex_by_id(uid);
 	int u = count_subs(uid);
 	sort_subs(uid);
@@ -1274,7 +1341,7 @@ void resize_subs(int uid) {
 }
 
 void sort_subs(int uid) {
-    // Sort subscriptions
+	// Sort subscriptions
 	int uind = get_uindex_by_id(uid);
 	int tmp;
 	for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
@@ -1292,7 +1359,7 @@ void sort_subs(int uid) {
 }
 
 int is_user_already_subbed(int uid, int tid) {
-    // Is user already subscribed to certain topic ID?
+	// Is user already subscribed to certain topic ID?
 	int uind = get_uindex_by_id(uid);
 	for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
 		if (tid == sv_cfg.users[uind].topic_ids[i]) {

@@ -22,7 +22,7 @@ int main(int argc, char *argv[], char **envp) {
 			// Server is online.. try to connect
 			if (mkfifo(cl_cfg.cl_fifo, 0666) == 0 && mkfifo(cl_cfg.cl_fifo_tt, 0666) == 0) {
 				cl_cfg.cl_fifo_fd = open(cl_cfg.cl_fifo, O_RDWR);
-                cl_cfg.cl_fifo_tt_fd = open(cl_cfg.cl_fifo_tt, O_RDWR);
+				cl_cfg.cl_fifo_tt_fd = open(cl_cfg.cl_fifo_tt, O_RDWR);
 				if (cl_cfg.cl_fifo_fd == -1 || cl_cfg.cl_fifo_tt_fd == -1) {
 					printf("Error opening named pipe.\n");
 					cl_exit(-1);
@@ -41,6 +41,10 @@ int main(int argc, char *argv[], char **envp) {
 							printf("Username has been changed due to username being already in use.\n");
 							strncpy(cl_cfg.cl_username, s_cmd.Body.un_user.Username, MAX_USER);
 							printf("New username: %s.\n", cl_cfg.cl_username);
+							printf("Press enter key to continue...");
+							getchar();
+							char b[1];
+							fgets(b, 1, stdin);
 						}
 					} else if (s_cmd.cmd == CMD_ERR) {
 						printf("Error: %s", s_cmd.Body.un_topic);
@@ -56,70 +60,10 @@ int main(int argc, char *argv[], char **envp) {
 
 					// Main thread work ...
 					init_client();
-//                    char bu[1000];
-//                    fgets(bu, 1000, stdin);
-					char op;
-					int r, i;
-					char buf[22];
-					COMMAND s_cmd2;
-					strncpy(s_cmd2.From, cl_cfg.cl_fifo, MAX_FIFO);
-					do {
-						op = getchar();
-                        win_draw(WIN_MAIN);
-						if (op == '1') {
-							r = rand() % 22;
-							for (i = 0; i < r; i++) {
-								buf[i] = 'a' + r;
-							}
-							buf[i] = '\0';
-							win_print(WIN_MAIN, 1, 1, buf);
-						} else if (op == '2') {
-							s_cmd2.cmd = CMD_HEARTBEAT;
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '3') {
-							s_cmd2.cmd = CMD_NEWMSG;
-							strncpy(s_cmd2.Body.un_msg.Author, cl_cfg.cl_username, MAX_USER);
-							s_cmd2.Body.un_msg.Duration = (rand() % 101) + 30;
-							strncpy(s_cmd2.Body.un_msg.Title, "Ola", MAX_TPCTTL);
-							strncpy(s_cmd2.Body.un_msg.Topic, "Topic 1", MAX_TPCTTL);
-							strncpy(s_cmd2.Body.un_msg.Body, "Ouidwaohd waion waniodnawion ola oiwabdoiaw ndwaoin ola.", MAX_BODY);
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '4') {
-							s_cmd2.cmd = CMD_NEWMSG;
-							strncpy(s_cmd2.Body.un_msg.Author, cl_cfg.cl_username, MAX_USER);
-							s_cmd2.Body.un_msg.Duration = (rand() % 101) + 30;
-							strncpy(s_cmd2.Body.un_msg.Title, "Ola", MAX_TPCTTL);
-							strncpy(s_cmd2.Body.un_msg.Topic, "Topic ban", MAX_TPCTTL);
-							strncpy(s_cmd2.Body.un_msg.Body, "ola ban 22 adeus haha lala ola.", MAX_BODY);
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '5') {
-							s_cmd2.cmd = CMD_NEWMSG;
-							strncpy(s_cmd2.Body.un_msg.Author, cl_cfg.cl_username, MAX_USER);
-							s_cmd2.Body.un_msg.Duration = (rand() % 101) + 30;
-							strncpy(s_cmd2.Body.un_msg.Title, "Ola 2", MAX_TPCTTL);
-							strncpy(s_cmd2.Body.un_msg.Topic, "Topic 2", MAX_TPCTTL);
-							strncpy(s_cmd2.Body.un_msg.Body, "Ouidwaohd waion waniodnawion ola oiwabdoiaw ndwaoin ola.", MAX_BODY);
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '6') {
-							s_cmd2.cmd = CMD_SUB;
-							s_cmd2.Body.un_tt = 1;
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '7') {
-							s_cmd2.cmd = CMD_UNSUB;
-							s_cmd2.Body.un_tt = 1;
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '8') {
-							s_cmd2.cmd = CMD_GETMSG;
-							s_cmd2.Body.un_tt = 2;
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '9') {
-                            s_cmd2.cmd = CMD_GETTOPICS;
-							write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						} else if (op == '0') {
-                            s_cmd2.cmd = CMD_GETTITLES;
-                            write(cl_cfg.sv_fifo_fd, &s_cmd2, sizeof(COMMAND));
-						}
-					} while (op != 'q');
+					int menu_op = CL_MENU_MIN;
+					int ch;
+					draw_cl_menu(&menu_op);
+					while(cl_menu(&menu_op, &ch));
 
 					shutdown();
 					pthread_join(tds, NULL);
@@ -135,9 +79,400 @@ int main(int argc, char *argv[], char **envp) {
 	cl_exit(0);
 }
 
+int cl_menu(int *menu_op, int *ch) {
+	(*ch) = wgetch(cl_cfg.win[WIN_MAIN].w);
+
+	switch ((*ch)) {
+		case KEY_UP:
+			(*menu_op)--;
+			(*menu_op) = (*menu_op) == CL_MENU_MIN - 1 ? CL_MENU_MIN : (*menu_op);
+			draw_cl_menu_option((*menu_op) + 1, menu_options[(*menu_op)], FALSE);
+			draw_cl_menu_option((*menu_op), menu_options[(*menu_op) - 1], TRUE);
+			break;
+		case KEY_DOWN:
+			(*menu_op)++;
+			(*menu_op) = (*menu_op) == CL_MENU_MAX + 1 ? CL_MENU_MAX : (*menu_op);
+			draw_cl_menu_option((*menu_op) - 1, menu_options[(*menu_op) - 2], FALSE);
+			draw_cl_menu_option((*menu_op), menu_options[(*menu_op) - 1], TRUE);
+			break;
+		case KEY_RETURN:
+		case KEY_RIGHT:
+			switch ((*menu_op)) {
+				case CL_MENU_NEWMSG:
+					cl_menu_newmsg();
+					cl_cmd_newmsg((rand() % 101) + 30, "Topic owiandoi", "Ola", "Ouidwaohd waion waniodnawion ola oiwabdoiaw ndwaoin ola.");
+					draw_cl_menu(menu_op);
+					break;
+				case CL_MENU_TOPICS:
+					cl_menu_topics();
+					draw_cl_menu(menu_op);
+					break;
+				case CL_MENU_TITLES:
+					cl_menu_titles();
+					draw_cl_menu(menu_op);
+					break;
+				case CL_MENU_MSG:
+					cl_menu_msg();
+					draw_cl_menu(menu_op);
+					break;
+				case CL_MENU_SUB:
+					cl_menu_sub();
+					draw_cl_menu(menu_op);
+					break;
+				case CL_MENU_UNSUB:
+					cl_menu_unsub();
+					draw_cl_menu(menu_op);
+					break;
+				case CL_MENU_EXIT:
+					return 0;
+				default:
+					break;
+			}
+			break;
+		default:
+            if ((*ch) >= (CL_MENU_MIN + 48) && (*ch) <= (CL_MENU_MAX + 48)) {
+                draw_cl_menu_option((*menu_op), menu_options[(*menu_op) - 1], FALSE);
+                (*menu_op) = ((*ch) - 48);
+                draw_cl_menu_option((*menu_op), menu_options[(*menu_op) - 1], TRUE);
+            }
+			break;
+	}
+
+	return 1;
+}
+
+void draw_cl_menu(int *menu_op) {
+    win_draw2(WIN_MAIN);
+	for (int i = 0; i < CL_MENU_MAX; i++) {
+		draw_cl_menu_option(i + 1, menu_options[i], ((*menu_op) == i + 1));
+	}
+	draw_cl_menu_help(" UP - Menu up    DOWN - Menu down    RIGHT/RETURN - Menu select ");
+}
+
+void draw_cl_menu_help(char *str) {
+    win_print2(WIN_MAIN, cl_cfg.win[WIN_MAIN].height - 1, 1, str, FALSE, C_BW);
+}
+
+void draw_cl_menu_option(int index, char *str, int attr) {
+    if (attr) {
+        win_print2(WIN_MAIN, (index - 1) * 2 + 2, 2, str, FALSE, C_WBL);
+    } else {
+        win_print2(WIN_MAIN, (index - 1) * 2 + 2, 2, str, FALSE, C_NONE);
+    }
+}
+
+void cl_menu_newmsg() {
+	win_draw2(WIN_MAIN);
+	// Ask for Duration
+	// Ask for Topic
+	// Ask for Title
+	// Ask for Body
+}
+
+void cl_menu_topics() {
+	win_draw2(WIN_MAIN);
+	// Show topics
+	cl_cmd_gettopics();
+	// Draw help
+	draw_cl_menu_help(" LEFT/RETURN/END - Go back ");
+	// Wait for user to press key
+	int ch;
+	do {
+		ch = wgetch(cl_cfg.win[WIN_MAIN].w);
+		switch (ch) {
+			case KEY_RETURN:
+			case KEY_LEFT:
+			case KEY_END:
+				return;
+			default:
+				break;
+		}
+	} while (1);
+}
+
+void cl_menu_titles() {
+	win_draw2(WIN_MAIN);
+	// Show titles
+	cl_cmd_gettitles();
+	// Reset unread messages counter
+    cl_reset_HUD_unrmsg();
+	// Draw help
+	draw_cl_menu_help(" LEFT/RETURN/END - Go back ");
+	// Wait for user to press key
+	int ch;
+	do {
+		ch = wgetch(cl_cfg.win[WIN_MAIN].w);
+		switch (ch) {
+			case KEY_RETURN:
+			case KEY_LEFT:
+			case KEY_END:
+				return;
+			default:
+				break;
+		}
+	} while (1);
+}
+
+void cl_menu_msg() {
+	win_draw2(WIN_MAIN);
+	// Draw help
+	draw_cl_menu_help(" LEFT/END - Go back    ENTER - Continue ");
+	// Ask for Message ID
+	int y, x, h_txt, bo = 1;
+	y = x = 1;
+	h_txt = 22;
+	char c_h_txt[] = "Insert a Message ID: ";
+    win_print2(WIN_MAIN, y, x, c_h_txt, FALSE, C_YB);
+	int ch, index = 0;
+    char *u_txt = malloc(sizeof(char) * 12);
+    char buffer[2];
+    if (u_txt != NULL) {
+        do {
+            ch = wgetch(cl_cfg.win[WIN_MAIN].w);
+            switch (ch) {
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    if (bo && index < 11) {
+                        snprintf(buffer, 2, "%d", (ch - 48));
+                        win_print2(WIN_MAIN, y, h_txt + index, buffer, FALSE, C_NONE);
+                        u_txt[index] = (char)ch;
+                        index++;
+                    }
+                    break;
+                case KEY_BACKSPACE:
+                    if (bo && index > 0) {
+                        index--;
+                        win_print2(WIN_MAIN, y, h_txt + index, " ", FALSE, C_NONE);
+                        u_txt[index] = '\0';
+                    }
+                    break;
+                case KEY_RETURN:
+                    if (bo && index > 0) {
+                        win_draw2(WIN_MAIN);
+                        draw_cl_menu_help(" LEFT/END - Go back ");
+                        // Show message
+                        cl_cmd_getmsg(atoi(u_txt));
+                        free(u_txt);
+                        // Wait for user to press key
+                        bo = 0;
+                    }
+                    break;
+                case KEY_LEFT:
+                case KEY_END:
+                    free(u_txt);
+                    return;
+                default:
+                    break;
+            }
+        } while (1);
+    }
+}
+
+void cl_menu_sub() {
+	win_draw2(WIN_MAIN);
+	// Draw help
+	draw_cl_menu_help(" LEFT/END - Go back    ENTER - Continue ");
+	// Ask for Topic ID
+	int y, x, h_txt;
+	y = x = 1;
+	h_txt = 20;
+	char c_h_txt[] = "Insert a Topic ID: ";
+    win_print2(WIN_MAIN, y, x, c_h_txt, FALSE, C_YB);
+	int ch, index = 0;
+    char *u_txt = malloc(sizeof(char) * 12);
+    char buffer[2];
+    if (u_txt != NULL) {
+        do {
+            ch = wgetch(cl_cfg.win[WIN_MAIN].w);
+            switch (ch) {
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    if (index < 11) {
+                        snprintf(buffer, 2, "%d", (ch - 48));
+                        win_print2(WIN_MAIN, y, h_txt + index, buffer, FALSE, C_NONE);
+                        u_txt[index] = (char)ch;
+                        index++;
+                    }
+                    break;
+                case KEY_BACKSPACE:
+                    if (index > 0) {
+                        index--;
+                        win_print2(WIN_MAIN, y, h_txt + index, " ", FALSE, C_NONE);
+                        u_txt[index] = '\0';
+                    }
+                    break;
+                case KEY_RETURN:
+                    if (index > 0) {
+                        cl_cmd_sub(atoi(u_txt));
+                        free(u_txt);
+                        return;
+                    }
+                    break;
+                case KEY_LEFT:
+                case KEY_END:
+                    free(u_txt);
+                    return;
+                default:
+                    break;
+            }
+        } while (1);
+    }
+}
+
+void cl_menu_unsub() {
+	win_draw2(WIN_MAIN);
+	// Draw help
+	draw_cl_menu_help(" LEFT/END - Go back    ENTER - Continue ");
+	// Ask for Topic ID
+	int y, x, h_txt;
+	y = x = 1;
+	h_txt = 20;
+	char c_h_txt[] = "Insert a Topic ID: ";
+    win_print2(WIN_MAIN, y, x, c_h_txt, FALSE, C_YB);
+	int ch, index = 0;
+    char *u_txt = malloc(sizeof(char) * 12);
+    char buffer[2];
+    if (u_txt != NULL) {
+        do {
+            ch = wgetch(cl_cfg.win[WIN_MAIN].w);
+            switch (ch) {
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    if (index < 11) {
+                        snprintf(buffer, 2, "%d", (ch - 48));
+                        win_print2(WIN_MAIN, y, h_txt + index, buffer, FALSE, C_NONE);
+                        u_txt[index] = (char)ch;
+                        index++;
+                    }
+                    break;
+                case KEY_BACKSPACE:
+                    if (index > 0) {
+                        index--;
+                        win_print2(WIN_MAIN, y, h_txt + index, " ", FALSE, C_NONE);
+                        u_txt[index] = '\0';
+                    }
+                    break;
+                case KEY_RETURN:
+                    if (index > 0) {
+                        cl_cmd_unsub(atoi(u_txt));
+                        free(u_txt);
+                        return;
+                    }
+                    break;
+                case KEY_LEFT:
+                case KEY_END:
+                    free(u_txt);
+                    return;
+                default:
+                    break;
+            }
+        } while (1);
+    }
+}
+
+void cl_reset_HUD_unrmsg() {
+    cl_cfg.cl_unr_msg = 0;
+    char buf[11];
+    snprintf(buf, 11, "%d", cl_cfg.cl_unr_msg);
+    win_print2(WIN_HUD, 3, 14, buf, FALSE, C_NONE);
+    for (int i = 15; i < cl_cfg.win[WIN_HUD].width - 1; i++) {
+        win_print2(WIN_HUD, 3, i, " ", FALSE, C_NONE);
+    }
+}
+
+void cl_cmd_newmsg(int duration, const char *topic, const char *title, const char *body) {
+	COMMAND s_cmd;
+	// Basic COMMAND info
+	s_cmd.cmd = CMD_NEWMSG;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", cl_cfg.cl_fifo);
+	// COMMAND info
+	s_cmd.Body.un_msg.Duration = duration;
+	snprintf(s_cmd.Body.un_msg.Author, MAX_USER, "%s", cl_cfg.cl_username);
+	snprintf(s_cmd.Body.un_msg.Topic, MAX_TPCTTL, "%s", topic);
+	snprintf(s_cmd.Body.un_msg.Title, MAX_TPCTTL, "%s", title);
+	snprintf(s_cmd.Body.un_msg.Body, MAX_BODY, "%s", body);
+	// Send new message
+	write(cl_cfg.sv_fifo_fd, &s_cmd, sizeof(COMMAND));
+}
+
+void cl_cmd_gettopics() {
+	COMMAND s_cmd;
+	// Basic COMMAND info
+	s_cmd.cmd = CMD_GETTOPICS;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", cl_cfg.cl_fifo);
+	// Send get topics
+	write(cl_cfg.sv_fifo_fd, &s_cmd, sizeof(COMMAND));
+}
+
+void cl_cmd_gettitles() {
+	COMMAND s_cmd;
+	// Basic COMMAND info
+	s_cmd.cmd = CMD_GETTITLES;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", cl_cfg.cl_fifo);
+	// Send get topics
+	write(cl_cfg.sv_fifo_fd, &s_cmd, sizeof(COMMAND));
+}
+
+void cl_cmd_getmsg(int message_id) {
+	COMMAND s_cmd;
+	// Basic COMMAND info
+	s_cmd.cmd = CMD_GETMSG;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", cl_cfg.cl_fifo);
+	// COMMAND info
+	s_cmd.Body.un_tt = message_id;
+	// Send get topics
+	write(cl_cfg.sv_fifo_fd, &s_cmd, sizeof(COMMAND));
+}
+
+void cl_cmd_sub(int topic_id) {
+	COMMAND s_cmd;
+	// Basic COMMAND info
+	s_cmd.cmd = CMD_SUB;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", cl_cfg.cl_fifo);
+	// COMMAND info
+	s_cmd.Body.un_tt = topic_id;
+	// Send get topics
+	write(cl_cfg.sv_fifo_fd, &s_cmd, sizeof(COMMAND));
+}
+
+void cl_cmd_unsub(int topic_id) {
+	COMMAND s_cmd;
+	// Basic COMMAND info
+	s_cmd.cmd = CMD_UNSUB;
+	snprintf(s_cmd.From, MAX_FIFO, "%s", cl_cfg.cl_fifo);
+	// COMMAND info
+	s_cmd.Body.un_tt = topic_id;
+	// Send get topics
+	write(cl_cfg.sv_fifo_fd, &s_cmd, sizeof(COMMAND));
+}
+
 void init_config() {
 	snprintf(cl_cfg.cl_fifo, MAX_FIFO, "/tmp/%d", getpid());
-	snprintf(cl_cfg.cl_fifo_tt, MAX_FIFO+3, "%s_tt", cl_cfg.cl_fifo);
+	snprintf(cl_cfg.cl_fifo_tt, MAX_FIFO + 3, "%s_tt", cl_cfg.cl_fifo);
 	cl_cfg.sv_fifo_fd = open(sv_fifo, O_WRONLY);
 	cl_cfg.cl_unr_msg = 0;
 	if (cl_cfg.sv_fifo_fd == -1) {
@@ -167,49 +502,52 @@ void *handle_connection(void *p_cmd) {
 	COMMAND r_cmd = *((COMMAND *)p_cmd);
 	free(p_cmd);
 
-	char str[30];
-	sprintf(str, "Received %s", CMD_ID_to_STR(r_cmd.cmd));
-	win_draw(WIN_SVMSG);
-	win_color(WIN_SVMSG, C_RB, TRUE);
-	win_print(WIN_SVMSG, 1, 1, str);
-	win_color(WIN_SVMSG, C_RB, FALSE);
-	//printf("Received %s\n", CMD_ID_to_STR(r_cmd.cmd));
+    if (r_cmd.cmd != CMD_HEARTBEAT) {
+        char str[31];
+        snprintf(str, 31, "Received %s", CMD_ID_to_STR(r_cmd.cmd));
+        win_print2(WIN_SVMSG, 1, 1, str, TRUE, C_RB);
+    }
 	switch (r_cmd.cmd) {
-	case CMD_HEARTBEAT:
-		f_CMD_HEARTBEAT(r_cmd);
-		break;
-	case CMD_SDC:
-		f_CMD_SDC(r_cmd);
-		break;
-	case CMD_FDC:
-		f_CMD_FDC(r_cmd);
-		break;
-	case CMD_GETMSG:
-		f_CMD_GETMSG(r_cmd);
-		break;
-	case CMD_GETTITLES:
-	    pthread_mutex_lock(&mtx_tt);
-		f_CMD_GETTITLES(r_cmd);
-		pthread_mutex_unlock(&mtx_tt);
-		break;
-	case CMD_GETTOPICS:
-	    pthread_mutex_lock(&mtx_tt);
-		f_CMD_GETTOPICS(r_cmd);
-		pthread_mutex_unlock(&mtx_tt);
-		break;
-	case CMD_SUB:
-		// Received sub message
-		f_CMD_SUB(r_cmd);
-		break;
-	case CMD_ERR:
-		// Show error message
-		f_CMD_ERR(r_cmd);
-		break;
-	case CMD_IGN:
-	// Ignore
-	default:
+		case CMD_HEARTBEAT:
+			f_CMD_HEARTBEAT(r_cmd);
+			break;
+		case CMD_SDC:
+            // Server disconnect
+			f_CMD_SDC(r_cmd);
+			break;
+		case CMD_FDC:
+		    // Force disconnect
+			f_CMD_FDC(r_cmd);
+			break;
+		case CMD_GETMSG:
+		    // Received message
+			f_CMD_GETMSG(r_cmd);
+			break;
+		case CMD_GETTITLES:
+		    // Received Titles
+			pthread_mutex_lock(&mtx_tt);
+			f_CMD_GETTITLES(r_cmd);
+			pthread_mutex_unlock(&mtx_tt);
+			break;
+		case CMD_GETTOPICS:
+		    // Received Topics
+			pthread_mutex_lock(&mtx_tt);
+			f_CMD_GETTOPICS(r_cmd);
+			pthread_mutex_unlock(&mtx_tt);
+			break;
+		case CMD_SUB:
+			// Received sub message
+			f_CMD_SUB(r_cmd);
+			break;
+		case CMD_ERR:
+			// Show error message
+			f_CMD_ERR(r_cmd);
+			break;
+		case CMD_IGN:
 		// Ignore
-		break;
+		default:
+			// Ignore
+			break;
 	}
 }
 
@@ -231,96 +569,80 @@ void f_CMD_FDC(COMMAND r_cmd) {
 }
 
 void f_CMD_GETMSG(COMMAND r_cmd) {
-	char author[MAX_USER + 8];
-	snprintf(author, MAX_USER + 8, "Author: %s", r_cmd.Body.un_msg.Author);
-	char topic[MAX_TPCTTL + 7];
-	snprintf(topic, MAX_TPCTTL + 7, "Topic: %s", r_cmd.Body.un_msg.Topic);
-	char title[MAX_TPCTTL + 7];
-	snprintf(title, MAX_TPCTTL + 7, "Title: %s", r_cmd.Body.un_msg.Title);
-	char body[MAX_BODY + 6];
-	snprintf(body, MAX_BODY + 7, "Body: %s", r_cmd.Body.un_msg.Body);
-	win_print(WIN_MAIN, 1, 1, author);
-	win_print(WIN_MAIN, 2, 1, topic);
-	win_print(WIN_MAIN, 3, 1, title);
-	win_print(WIN_MAIN, 4, 1, body);
+    char buffer[12];
+    snprintf(buffer, 12, "%d", r_cmd.Body.un_msg.Duration);
+	// Print "ID: "
+    win_print2(WIN_MAIN, 1, 1, "ID: ", FALSE, C_YB);
+    // Print "%d" = ID
+    win_print2(WIN_MAIN, 1, 9, buffer, FALSE, C_NONE);
+    // Print "Author: "
+    win_print2(WIN_MAIN, 2, 1, "Author: ", FALSE, C_YB);
+    // Print "%s" = Author
+    win_print2(WIN_MAIN, 2, 9, r_cmd.Body.un_msg.Author, FALSE, C_NONE);
+    // Print "Topic: "
+    win_print2(WIN_MAIN, 3, 1, "Topic: ", FALSE, C_YB);
+    // Print "%s" = Topic
+    win_print2(WIN_MAIN, 3, 9, r_cmd.Body.un_msg.Topic, FALSE, C_NONE);
+    // Print "Title: "
+    win_print2(WIN_MAIN, 4, 1, "Title: ", FALSE, C_YB);
+    // Print "%s" = Title
+    win_print2(WIN_MAIN, 4, 9, r_cmd.Body.un_msg.Title, FALSE, C_NONE);
+    // Print "Body: "
+    win_print2(WIN_MAIN, 5, 1, "Body: ", FALSE, C_YB);
+    // Print "%s" = Body
+    win_print2(WIN_MAIN, 6, 1, r_cmd.Body.un_msg.Body, FALSE, C_NONE);
 }
 
 void f_CMD_GETTITLES(COMMAND r_cmd) {
-    COMMAND r_cmd_tt;
-    char buffer[MAX_TPCTTL+MAX_USER+33];
-    for (int i = 0; i < r_cmd.Body.un_tt; i++) {
-        read(cl_cfg.cl_fifo_tt_fd, &r_cmd_tt, sizeof(COMMAND));
-        snprintf(buffer, MAX_TPCTTL+MAX_USER+33, "ID: %d\tAuthor: %s\tTitle: %s", r_cmd_tt.Body.un_msg.Duration, r_cmd_tt.Body.un_msg.Author, r_cmd_tt.Body.un_msg.Title);
-        win_print(WIN_MAIN, i+1, 1, buffer);
-    }
-
-//	if (!getting_titles && !getting_topics) {
-//		// Not getting titles nor topics
-//		getting_titles = 1;
-//		// Get number of titles coming to the server
-//        // Number comes from un_tt
-//	} else if (getting_titles && !getting_topics) {
-//		// Getting titles and not getting topics
-//		// Check if it's over then continue
-//		// Get titles
-//		// Titles come from un_msg.Title
-//		// If un_msg.Duration == -1 it's over otherwise it's the ID of the message
-//		getting_titles = 0;
-//	}
+	COMMAND r_cmd_tt;
+	char buffer[MAX_TPCTTL];
+	for (int i = 0; i < r_cmd.Body.un_tt && i < LINES - 1; i++) {
+		read(cl_cfg.cl_fifo_tt_fd, &r_cmd_tt, sizeof(COMMAND));
+		// Print "ID: "
+        win_print2(WIN_MAIN, i+1, 1, "ID: ", FALSE, C_YB);
+        // Print "%d" = ID
+        snprintf(buffer, MAX_TPCTTL, "%d", r_cmd_tt.Body.un_msg.Duration);
+        win_print2(WIN_MAIN, i+1, 5, buffer, FALSE, C_NONE);
+        // Print "Author: "
+        win_print2(WIN_MAIN, i+1, 17, "Author: ", FALSE, C_YB);
+        // Print "%s" = Author
+        snprintf(buffer, MAX_TPCTTL, "%s", r_cmd_tt.Body.un_msg.Author);
+        win_print2(WIN_MAIN, i+1, 25, buffer, FALSE, C_NONE);
+        // Print "Title: "
+        win_print2(WIN_MAIN, i+1, 27+MAX_USER, "Title: ", FALSE, C_YB);
+        // Print "%s" = Title
+        snprintf(buffer, MAX_TPCTTL, "%s", r_cmd_tt.Body.un_msg.Title);
+        win_print2(WIN_MAIN, i+1, 34+MAX_USER, buffer, FALSE, C_NONE);
+	}
 }
 
 void f_CMD_GETTOPICS(COMMAND r_cmd) {
-    COMMAND r_cmd_tt;
-    char buffer[MAX_TPCTTL+24];
-    for (int i = 0; i < r_cmd.Body.un_tt; i++) {
-        read(cl_cfg.cl_fifo_tt_fd, &r_cmd_tt, sizeof(COMMAND));
-        snprintf(buffer, MAX_TPCTTL+24, "ID: %d\tTopic: %s", r_cmd_tt.Body.un_msg.Duration, r_cmd_tt.Body.un_msg.Topic);
-        win_print(WIN_MAIN, i+1, 1, buffer);
-    }
-
-//	if (!getting_topics && !getting_titles) {
-//		// Not getting topics nor titles
-//		getting_topics = 1;
-//		tt_index = 0;
-//		// Get number of topics coming to the server
-//        // Number comes from un_tt
-//        tito = malloc(sizeof(TT) * r_cmd.Body.un_tt);
-//	} else if (getting_topics && !getting_titles) {
-//		// Getting topics and not getting titles
-//		// Check if it's over then continue
-//		// Get topics
-//		// Topics come from un_msg.Topic
-//		// If un_msg.Duration == -1 it's over otherwise it's the ID of the topic
-//		if (tito != NULL) {
-//            if (r_cmd.Body.un_msg.Duration == -1) {
-//                char buffer[MAX_TPCTTL+25];
-//                for (int i = 0; i < tt_index; i++) {
-//                    snprintf(buffer, MAX_TPCTTL+25, "ID: %d\tTopic: %s", tito[i].ID, tito[i].Name);
-//                    win_print(WIN_MAIN, i+1, 1, buffer);
-//                }
-//                // free for now...
-//                getting_topics = 0;
-//                free(tito);
-//            } else {
-//                tito[tt_index].ID = r_cmd.Body.un_msg.Duration;
-//                snprintf(tito[tt_index].Name, MAX_TPCTTL, "%s", r_cmd.Body.un_msg.Topic);
-//                tt_index++;
-//            }
-//		}
-//	}
+	COMMAND r_cmd_tt;
+	char buffer[MAX_TPCTTL];
+	for (int i = 0; i < r_cmd.Body.un_tt && i < LINES - 1; i++) {
+		read(cl_cfg.cl_fifo_tt_fd, &r_cmd_tt, sizeof(COMMAND));
+		// Print "ID: "
+        win_print2(WIN_MAIN, i+1, 1, "ID: ", FALSE, C_YB);
+        // Print "%d" = ID
+        snprintf(buffer, MAX_TPCTTL, "%d", r_cmd_tt.Body.un_msg.Duration);
+        win_print2(WIN_MAIN, i+1, 5, buffer, FALSE, C_NONE);
+        // Print "Topic: "
+        win_print2(WIN_MAIN, i+1, 17, "Topic: ", FALSE, C_YB);
+        // Print "%s" = Topic
+        snprintf(buffer, MAX_TPCTTL, "%s", r_cmd_tt.Body.un_msg.Topic);
+        win_print2(WIN_MAIN, i+1, 24, buffer, FALSE, C_NONE);
+	}
 }
 
 void f_CMD_SUB(COMMAND r_cmd) {
 	cl_cfg.cl_unr_msg++;
 	char str[5];
 	sprintf(str, "%d", cl_cfg.cl_unr_msg);
-	win_color(WIN_HUD, C_BW, TRUE);
-	win_print(WIN_HUD, 3, 14, str);
-	win_color(WIN_HUD, C_BW, FALSE);
+    win_print2(WIN_HUD, 3, 14, str, FALSE, C_BW);
 }
 
 void f_CMD_ERR(COMMAND r_cmd) {
-	win_print(1, 3, 1, r_cmd.Body.un_topic);
+	win_print2(WIN_SVMSG, 3, 1, r_cmd.Body.un_topic, FALSE, C_NONE);
 }
 
 void set_signal() {
@@ -350,19 +672,21 @@ void init_client() {
 	init_pair(C_YB, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(C_RB, COLOR_RED, COLOR_BLACK);
 	init_pair(C_BW, COLOR_BLACK, COLOR_WHITE);
+	init_pair(C_WBL, COLOR_WHITE, COLOR_BLUE);
 
-	cl_cfg.win[0].height = WIN_H_H;
-	cl_cfg.win[0].width = COLS - WIN_H_W;
-	cl_cfg.win[0].w = newwin(WIN_H_H, COLS - WIN_H_W, 0, 0);
-	cl_cfg.win[1].height = WIN_H_H;
-	cl_cfg.win[1].width = WIN_H_W;
-	cl_cfg.win[1].w = newwin(WIN_H_H, WIN_H_W, 0, COLS - WIN_H_W);
-	cl_cfg.win[2].height = LINES - WIN_H_H;
-	cl_cfg.win[2].width = COLS;
-	cl_cfg.win[2].w = newwin(LINES - WIN_H_H, COLS, WIN_H_H, 0);
+	cl_cfg.win[WIN_HUD].height = WIN_H_H;
+	cl_cfg.win[WIN_HUD].width = COLS * (1 - WIN_H_W);
+	cl_cfg.win[WIN_HUD].w = newwin(WIN_H_H, COLS * (1 - WIN_H_W), 0, 0);
+	cl_cfg.win[WIN_SVMSG].height = WIN_H_H;
+	cl_cfg.win[WIN_SVMSG].width = COLS * WIN_H_W + 1;
+	cl_cfg.win[WIN_SVMSG].w = newwin(WIN_H_H, COLS * WIN_H_W + 1, 0, COLS * (1 - WIN_H_W));
+	cl_cfg.win[WIN_MAIN].height = LINES - WIN_H_H;
+	cl_cfg.win[WIN_MAIN].width = COLS;
+	cl_cfg.win[WIN_MAIN].w = newwin(LINES - WIN_H_H, COLS, WIN_H_H, 0);
+	keypad(cl_cfg.win[WIN_MAIN].w, TRUE);
 
 	for (int i = 0; i < NUM_WIN; i++) {
-		win_draw(i);
+		win_draw2(i);
 	}
 
 	char str[10], str2[6], str3[13], str4[5];
@@ -370,14 +694,12 @@ void init_client() {
 	sprintf(str2, "FIFO:");
 	sprintf(str3, "Unread msgs:");
 	sprintf(str4, "%d", cl_cfg.cl_unr_msg);
-	win_color(WIN_HUD, C_YB, TRUE);
-	win_print(WIN_HUD, 1, 1, str);
-	win_print(WIN_HUD, 2, 1, str2);
-	win_print(WIN_HUD, 3, 1, str3);
-	win_color(WIN_HUD, C_YB, FALSE);
-	win_print(WIN_HUD, 1, 14, cl_cfg.cl_username);
-	win_print(WIN_HUD, 2, 14, cl_cfg.cl_fifo);
-	win_print(WIN_HUD, 3, 14, str4);
+    win_print2(WIN_HUD, 1, 1, str, FALSE, C_YB);
+    win_print2(WIN_HUD, 2, 1, str2, FALSE, C_YB);
+    win_print2(WIN_HUD, 3, 1, str3, FALSE, C_YB);
+    win_print2(WIN_HUD, 1, 14, cl_cfg.cl_username, FALSE, C_NONE);
+    win_print2(WIN_HUD, 2, 14, cl_cfg.cl_fifo, FALSE, C_NONE);
+    win_print2(WIN_HUD, 3, 14, str4, FALSE, C_NONE);
 }
 
 // w = window index --> 0 = top left box, 1 = top right box, 2 = main box
@@ -400,6 +722,21 @@ void win_color(int w, int c_pair, int on) {
 	}
 }
 
+void win_print2(int w, int y, int x, char *str, int redraw, int c_pair) {
+    pthread_mutex_lock(&mtx_win);
+    if (redraw) {
+        win_draw(w);
+    }
+    if (c_pair) {
+        win_color(w, c_pair, TRUE);
+    }
+    win_print(w, y, x, str);
+    if (c_pair) {
+        win_color(w, c_pair, FALSE);
+    }
+    pthread_mutex_unlock(&mtx_win);
+}
+
 void win_erase(int w) {
 	werase(cl_cfg.win[w].w);
 }
@@ -412,6 +749,10 @@ void win_draw(int w) {
 	win_erase(w);
 	box(cl_cfg.win[w].w, 0, 0);
 	win_refresh(w);
+}
+
+void win_draw2(int w) {
+    win_print2(w, -1, -1, "", TRUE, C_NONE);
 }
 
 void shutdown() {
@@ -437,7 +778,7 @@ void shutdown() {
 			wrefresh(cl_cfg.win[i].w);
 			delwin(cl_cfg.win[i].w);
 		}
-		clear();
+//		clear();
 		endwin();
 	}
 
