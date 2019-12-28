@@ -65,16 +65,32 @@ void init_config() {
 	sv_cfg.use_filter = 1;
 	sv_cfg.maxmsg = MAXMSG;
 	sv_cfg.maxnot = MAXNOT;
-	sv_cfg.wordsnot = WORDSNOT;
+    snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", WORDSNOT);
+//	sv_cfg.wordsnot = WORDSNOT;
 	char *env;
 	if ((env = getenv("MAXMSG")) != NULL) {
 		sv_cfg.maxmsg = atoi(env);
+        if (sv_cfg.maxmsg <= 0) {
+            sv_cfg.maxmsg = MAXMSG;
+        }
 	}
 	if ((env = getenv("MAXNOT")) != NULL) {
 		sv_cfg.maxnot = atoi(env);
+		if (sv_cfg.maxnot < 0) {
+            sv_cfg.maxnot = MAXNOT;
+		}
 	}
 	if ((env = getenv("WORDSNOT")) != NULL) {
-		sv_cfg.wordsnot = env;
+        snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", env);
+	}
+    // Using is server running function to verify if the file exists
+	if (IsServerRunning(sv_cfg.wordsnot) == 0) {
+        fprintf(stderr, "[Server] WORDSNOT: '%s' does not exist! Checking if default file exists...\n", sv_cfg.wordsnot);
+        snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", WORDSNOT);
+        if (IsServerRunning(sv_cfg.wordsnot) == 0) {
+            fprintf(stderr, "[Server] Default WORDSNOT: '%s' does not exist! Closing...\n", sv_cfg.wordsnot);
+            sv_exit(-3);
+        }
 	}
 	fprintf(stderr, "[Server] MAXMSG: %d\n[Server] MAXNOT: %d\n[Server] WORDSNOT: %s\n", sv_cfg.maxmsg, sv_cfg.maxnot, sv_cfg.wordsnot);
 	// Initialize users, messages and topics
@@ -742,6 +758,8 @@ void shutdown() {
 //    unlink(sv_fifo);
 //    printerr("Named pipe deleted.", PERR_INFO, FALSE);
 	// Kill 'verificador'
+	close(sv_cfg.sv_verificador_pipes[0]);
+    close(sv_cfg.sv_verificador_pipes[1]);
 	kill(sv_cfg.sv_verificador_pid, SIGUSR2);
 }
 

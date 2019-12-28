@@ -949,7 +949,7 @@ void shutdown() {
 			wrefresh(cl_cfg.win[i].w);
 			delwin(cl_cfg.win[i].w);
 		}
-//		clear();
+		clear();
 		endwin();
 	}
 

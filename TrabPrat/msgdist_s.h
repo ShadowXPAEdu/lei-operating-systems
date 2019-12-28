@@ -110,7 +110,7 @@ typedef struct {
 
 	int maxmsg;                     // Maximum number of messages the server can hold
 	int maxnot;                     // Maximum number of banned words
-	char *wordsnot;                 // File name/path of the file of banned words
+	char wordsnot[PATH_MAX];        // File name/path of the file of banned words
 } SV_CFG;
 
 // Variables

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
+#include <limits.h>
 
 // True or false
 #define TRUE 1
