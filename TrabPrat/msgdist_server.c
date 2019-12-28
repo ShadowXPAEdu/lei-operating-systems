@@ -643,25 +643,27 @@ void *msg_duration() {
 	printerr("Ready to check messages duration.", PERR_INFO, FALSE);
 	pthread_mutex_unlock(&mtx_wait_for_init_td);
 	while (msg_duration_bool == 0) {
-		//pthread_mutex_lock(&mtx_msg);
+		pthread_mutex_lock(&mtx_msg);
 		// maxmsg is fixed
-		for (int i = 0; i < sv_cfg.maxmsg; i++) {
-			pthread_mutex_lock(&mtx_msg);
-			if (sv_cfg.msgs[i].id != -1) {
-				// Get [i]th msg and decrements duration
-				sv_cfg.msgs[i].msg.Duration--;
-				// Check if [i]th msg duration is 0
-				if (sv_cfg.msgs[i].msg.Duration == 0) {
-					// If msg duration is 0 set msg id to -1
-					char buf[43];
-					snprintf(buf, 43, "Message with ID [%d] has expired.", sv_cfg.msgs[i].id);
-					printerr(buf, PERR_INFO, TRUE);
-					rem_msg(sv_cfg.msgs[i].id);
+		if (sv_cfg.n_msgs > 0) {
+			for (int i = 0; i < sv_cfg.maxmsg; i++) {
+				//pthread_mutex_lock(&mtx_msg);
+				if (sv_cfg.msgs[i].id != -1) {
+					// Get [i]th msg and decrements duration
+					sv_cfg.msgs[i].msg.Duration--;
+					// Check if [i]th msg duration is 0
+					if (sv_cfg.msgs[i].msg.Duration == 0) {
+						// If msg duration is 0 set msg id to -1
+						char buf[43];
+						snprintf(buf, 43, "Message with ID [%d] has expired.", sv_cfg.msgs[i].id);
+						printerr(buf, PERR_INFO, TRUE);
+						rem_msg(sv_cfg.msgs[i].id);
+					}
 				}
+				//pthread_mutex_unlock(&mtx_msg);
 			}
-			pthread_mutex_unlock(&mtx_msg);
 		}
-		//pthread_mutex_unlock(&mtx_msg);
+		pthread_mutex_unlock(&mtx_msg);
 		sleep(1);
 	}
 	return NULL;
@@ -692,8 +694,6 @@ void *heartbeat() {
 			// Sets ID -1 of users with alive 0
 			if (sv_cfg.users[i].id != -1 && sv_cfg.users[i].alive == 0) {
 				rem_user2(i);
-//                sv_cfg.users[i].id = -1;
-//                close(sv_cfg.users[i].user_fd);
 			}
 		}
 		// Resize users, sorts users
@@ -1023,36 +1023,44 @@ void adm_cmd_cfg() {
 
 void adm_cmd_view(const char *ptr) {
 	int mid = atoi(ptr);
-	pthread_mutex_lock(&mtx_msg);
-	int mind = get_mindex_by_id(mid);
-	if (mind != -1) {
-		printf("\tID: %d\n\tTime left: %d\n\tAuthor: %s\n\tTopic: %s\n\tTitle: %s\n\tBody: %s\n",
-		       sv_cfg.msgs[mind].id, sv_cfg.msgs[mind].msg.Duration, sv_cfg.msgs[mind].msg.Author,
-		       sv_cfg.msgs[mind].msg.Topic, sv_cfg.msgs[mind].msg.Title, sv_cfg.msgs[mind].msg.Body);
-	} else {
+	if (mid <= 0 || mid >= sv_cfg.next_mid) {
 		printerr("Invalid ID.", PERR_WARNING, FALSE);
+	} else {
+		pthread_mutex_lock(&mtx_msg);
+		int mind = get_mindex_by_id(mid);
+		if (mind != -1) {
+			printf("\tID: %d\n\tTime left: %d\n\tAuthor: %s\n\tTopic: %s\n\tTitle: %s\n\tBody:\n%s\n",
+			       sv_cfg.msgs[mind].id, sv_cfg.msgs[mind].msg.Duration, sv_cfg.msgs[mind].msg.Author,
+			       sv_cfg.msgs[mind].msg.Topic, sv_cfg.msgs[mind].msg.Title, sv_cfg.msgs[mind].msg.Body);
+		} else {
+			printerr("Invalid ID.", PERR_WARNING, FALSE);
+		}
+		pthread_mutex_unlock(&mtx_msg);
 	}
-	pthread_mutex_unlock(&mtx_msg);
 }
 
 void adm_cmd_subs(const char *ptr) {
 	int uid = atoi(ptr);
-	pthread_mutex_lock(&mtx_topic);
-	pthread_mutex_lock(&mtx_user);
-	int uind = get_uindex_by_id(uid);
-	if (uind != -1) {
-		int tind;
-		printf("\tUser is subscribed to %d topics.\n", count_subs(uid));
-		for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
-			tind = get_tindex_by_id(sv_cfg.users[uind].topic_ids[i]);
-			if (sv_cfg.topics[tind].id != -1)
-				printf("\tID: %d - '%s'\n", sv_cfg.topics[tind].id, sv_cfg.topics[tind].topic);
-		}
-	} else {
+	if (uid <= 0 || uid >= sv_cfg.next_mid) {
 		printerr("Invalid ID.", PERR_WARNING, FALSE);
+	} else {
+		pthread_mutex_lock(&mtx_topic);
+		pthread_mutex_lock(&mtx_user);
+		int uind = get_uindex_by_id(uid);
+		if (uind != -1) {
+			int tind;
+			printf("\tUser is subscribed to %d topics.\n", count_subs(uid));
+			for (int i = 0; i < sv_cfg.users[uind].sub_size; i++) {
+				tind = get_tindex_by_id(sv_cfg.users[uind].topic_ids[i]);
+				if (sv_cfg.topics[tind].id != -1)
+					printf("\tID: %d - '%s'\n", sv_cfg.topics[tind].id, sv_cfg.topics[tind].topic);
+			}
+		} else {
+			printerr("Invalid ID.", PERR_WARNING, FALSE);
+		}
+		pthread_mutex_unlock(&mtx_user);
+		pthread_mutex_unlock(&mtx_topic);
 	}
-	pthread_mutex_unlock(&mtx_user);
-	pthread_mutex_unlock(&mtx_topic);
 }
 
 // ********************** ADMINISTRATOR COMMAND FUNCTIONS END

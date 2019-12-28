@@ -55,6 +55,7 @@
 #define MAX_TPCTTL 50
 #define MAX_USER 21
 #define MAX_FIFO 21
+#define MAX_NUM 11
 
 typedef struct {
     char Username[MAX_USER];                    // Username

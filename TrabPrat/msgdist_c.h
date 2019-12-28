@@ -2,9 +2,14 @@
 #define MSGDIST_C
 
 #include <ncurses.h>
+#include <limits.h>
 
 // Ncurses doesn't have KEY_RETURN
 #define KEY_RETURN 10
+#define KEY_F9 273
+#define KEY_F10 274
+#define KEY_F11 275
+#define KEY_F12 276
 
 // Window Numbers
 #define WIN_HUD 0
