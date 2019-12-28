@@ -2,7 +2,6 @@
 #define MSGDIST_C
 
 #include <ncurses.h>
-#include <limits.h>
 
 // Ncurses doesn't have KEY_RETURN
 #define KEY_RETURN 10
