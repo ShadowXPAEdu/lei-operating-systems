@@ -1,7 +1,0 @@
-# depslib dependency file v1.0
-1572017811 source:d:\school\isec\lei\so\trabalho pratico 1\trabprat\mgsdist.c
-	<stdlib.h>
-	<stdio.h>
-	<unistd.h>
-	<sys/types.h>
-
