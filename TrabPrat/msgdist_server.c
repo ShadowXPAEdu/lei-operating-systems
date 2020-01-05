@@ -65,32 +65,32 @@ void init_config() {
 	sv_cfg.use_filter = 1;
 	sv_cfg.maxmsg = MAXMSG;
 	sv_cfg.maxnot = MAXNOT;
-    snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", WORDSNOT);
+	snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", WORDSNOT);
 //	sv_cfg.wordsnot = WORDSNOT;
 	char *env;
 	if ((env = getenv("MAXMSG")) != NULL) {
 		sv_cfg.maxmsg = atoi(env);
-        if (sv_cfg.maxmsg <= 0) {
-            sv_cfg.maxmsg = MAXMSG;
-        }
+		if (sv_cfg.maxmsg <= 0) {
+			sv_cfg.maxmsg = MAXMSG;
+		}
 	}
 	if ((env = getenv("MAXNOT")) != NULL) {
 		sv_cfg.maxnot = atoi(env);
 		if (sv_cfg.maxnot < 0) {
-            sv_cfg.maxnot = MAXNOT;
+			sv_cfg.maxnot = MAXNOT;
 		}
 	}
 	if ((env = getenv("WORDSNOT")) != NULL) {
-        snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", env);
+		snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", env);
 	}
-    // Using is server running function to verify if the file exists
+	// Using is server running function to verify if the file exists
 	if (IsServerRunning(sv_cfg.wordsnot) == 0) {
-        fprintf(stderr, "[Server] WORDSNOT: '%s' does not exist! Checking if default file exists...\n", sv_cfg.wordsnot);
-        snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", WORDSNOT);
-        if (IsServerRunning(sv_cfg.wordsnot) == 0) {
-            fprintf(stderr, "[Server] Default WORDSNOT: '%s' does not exist! Closing...\n", sv_cfg.wordsnot);
-            sv_exit(-3);
-        }
+		fprintf(stderr, "[Server] WORDSNOT: '%s' does not exist! Checking if default file exists...\n", sv_cfg.wordsnot);
+		snprintf(sv_cfg.wordsnot, PATH_MAX, "%s", WORDSNOT);
+		if (IsServerRunning(sv_cfg.wordsnot) == 0) {
+			fprintf(stderr, "[Server] Default WORDSNOT: '%s' does not exist! Closing...\n", sv_cfg.wordsnot);
+			sv_exit(-3);
+		}
 	}
 	fprintf(stderr, "[Server] MAXMSG: %d\n[Server] MAXNOT: %d\n[Server] WORDSNOT: %s\n", sv_cfg.maxmsg, sv_cfg.maxnot, sv_cfg.wordsnot);
 	// Initialize users, messages and topics
@@ -388,6 +388,10 @@ void *handle_connection(void *p_command) {
 				f_CMD_ALIVE(r_cmd);
 				pthread_mutex_unlock(&mtx_user);
 				break;
+            case CMD_HEARTBEAT:
+				pthread_mutex_lock(&mtx_user);
+				f_CMD_HEARTBEAT(r_cmd);
+				pthread_mutex_unlock(&mtx_user);
 			case CMD_IGN:
 				// Ignore cmd
 				break;
@@ -452,6 +456,16 @@ void f_CMD_ALIVE(COMMAND r_cmd) {
 	if (ind != -1) {
 		sv_cfg.users[ind].alive = 1;
 	}
+}
+
+void f_CMD_HEARTBEAT(COMMAND r_cmd) {
+    COMMAND s_cmd;
+    s_cmd.cmd = CMD_ALIVE;
+    snprintf(s_cmd.From, MAX_FIFO, "%s", sv_fifo);
+    int ind = get_uindex_by_FIFO(r_cmd.From);
+    if (ind != -1) {
+        write(sv_cfg.users[ind].user_fd, &s_cmd, sizeof(COMMAND));
+    }
 }
 
 void f_CMD_NEWMSG(COMMAND r_cmd) {
@@ -759,7 +773,7 @@ void shutdown() {
 //    printerr("Named pipe deleted.", PERR_INFO, FALSE);
 	// Kill 'verificador'
 	close(sv_cfg.sv_verificador_pipes[0]);
-    close(sv_cfg.sv_verificador_pipes[1]);
+	close(sv_cfg.sv_verificador_pipes[1]);
 	kill(sv_cfg.sv_verificador_pid, SIGUSR2);
 }
 
@@ -1041,10 +1055,10 @@ void adm_cmd_cfg() {
 
 void adm_cmd_view(const char *ptr) {
 	int mid = atoi(ptr);
+	pthread_mutex_lock(&mtx_msg);
 	if (mid <= 0 || mid >= sv_cfg.next_mid) {
 		printerr("Invalid ID.", PERR_WARNING, FALSE);
 	} else {
-		pthread_mutex_lock(&mtx_msg);
 		int mind = get_mindex_by_id(mid);
 		if (mind != -1) {
 			printf("\tID: %d\n\tTime left: %d\n\tAuthor: %s\n\tTopic: %s\n\tTitle: %s\n\tBody:\n%s\n",
@@ -1053,17 +1067,17 @@ void adm_cmd_view(const char *ptr) {
 		} else {
 			printerr("Invalid ID.", PERR_WARNING, FALSE);
 		}
-		pthread_mutex_unlock(&mtx_msg);
 	}
+	pthread_mutex_unlock(&mtx_msg);
 }
 
 void adm_cmd_subs(const char *ptr) {
 	int uid = atoi(ptr);
-	if (uid <= 0 || uid >= sv_cfg.next_mid) {
+	pthread_mutex_lock(&mtx_topic);
+	pthread_mutex_lock(&mtx_user);
+	if (uid <= 0 || uid >= sv_cfg.next_uid) {
 		printerr("Invalid ID.", PERR_WARNING, FALSE);
 	} else {
-		pthread_mutex_lock(&mtx_topic);
-		pthread_mutex_lock(&mtx_user);
 		int uind = get_uindex_by_id(uid);
 		if (uind != -1) {
 			int tind;
@@ -1076,9 +1090,9 @@ void adm_cmd_subs(const char *ptr) {
 		} else {
 			printerr("Invalid ID.", PERR_WARNING, FALSE);
 		}
-		pthread_mutex_unlock(&mtx_user);
-		pthread_mutex_unlock(&mtx_topic);
 	}
+	pthread_mutex_unlock(&mtx_user);
+	pthread_mutex_unlock(&mtx_topic);
 }
 
 // ********************** ADMINISTRATOR COMMAND FUNCTIONS END

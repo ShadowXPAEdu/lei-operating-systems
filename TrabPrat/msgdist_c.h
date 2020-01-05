@@ -45,6 +45,7 @@
 #define CL_MENU_EXIT 7
 
 int cmd_reader_bool = 0;
+int cmd_heartbeat = 0;
 int shutdown_init = 0;
 int sv_shutdown = 0;
 int init_win = 0;
@@ -53,6 +54,7 @@ int sv_kick = 0;
 // Mutexes
 pthread_mutex_t mtx_tt = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mtx_win = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mtx_hb = PTHREAD_MUTEX_INITIALIZER;
 // --
 
 void init_config();
@@ -91,6 +93,7 @@ void cl_cmd_unsub(int topic_id);
 
 void *cmd_reader();
 void *handle_connection(void* p_cmd);
+void *heartbeat();
 
 void f_CMD_HEARTBEAT(COMMAND r_cmd);
 void f_CMD_SDC(COMMAND r_cmd);
@@ -100,6 +103,7 @@ void f_CMD_GETTITLES(COMMAND r_cmd);
 void f_CMD_GETTOPICS(COMMAND r_cmd);
 void f_CMD_SUB(COMMAND r_cmd);
 void f_CMD_ERR(COMMAND r_cmd);
+void f_CMD_ALIVE(COMMAND r_cmd);
 
 typedef struct {
     WINDOW *w;
@@ -109,6 +113,8 @@ typedef struct {
 
 typedef struct {
     int sv_fifo_fd;
+    int sv_offline;
+
     int cl_fifo_fd;
     int cl_fifo_tt_fd;
     int cl_unr_msg;

@@ -41,6 +41,7 @@ void *heartbeat();                                  // Main function for control
 // Command handling functions
 void f_CMD_CON(COMMAND r_cmd);                  // Function to handle a user connection attempt
 void f_CMD_ALIVE(COMMAND r_cmd);                // Function to handle a user declaring it's still connected
+void f_CMD_HEARTBEAT(COMMAND r_cmd);            // Function to handle a user wanting to know if server is still online
 void f_CMD_DC(COMMAND r_cmd);                   // Function to handle a user disconnecting
 void f_CMD_NEWMSG(COMMAND r_cmd);               // Function to handle a new message being received
 void f_CMD_GETTOPICS(COMMAND r_cmd);            // Function to handle a request for a list of Topics
